@@ -12,16 +12,21 @@ from .config import load_config
 
 
 class LndClient:
-    """ ☋ Client for interacting with LND nodes ☊ """
+    """ ☋ Client for interacting with LND nodes """
 
     def __init__(self, node_name: str, config_path: str = "configs/test_config.yaml"):
+        """ Initialize LND client for a specific node
+
+        Args:
+            node_name (str): Name of the node (e.g., 'alice', 'bob', 'carol', etc.)
+            config_path (str): Path to config file
+        """
         self.config = load_config(config_path)
         self.node_config = self.config['nodes'][node_name]
         self.stub = self._create_stub()
 
     def _create_stub(self) -> lnrpc.LightningStub:
         """ Create a gRPC stub for LND communication ⛵ """
-
         cert_path = os.path.expanduser(self.node_config['tls_cert_path'])
         cert = open(cert_path, 'rb').read()
 
@@ -42,8 +47,9 @@ class LndClient:
         )
         return lnrpc.LightningStub(channel)
     
-        def get_info(self) -> Dict:
-            """ Get basic info about the node """
+    def get_info(self) -> Dict:
+        """ Get basic info about the node """
+        try:
             response = self.stub.GetInfo(ln.GetInfoRequest())
             return {
                 'pubkey': response.identity_pubkey,
@@ -52,9 +58,12 @@ class LndClient:
                 'num_active_channels': response.num_active_channels,
                 'blockheight': response.block_height
             }
-        
-        def get_channel_balances(self) -> List[Dict]:
-            """ Get balance information for all channels """
+        except Exception as e:
+            raise Exception(f'Error fetching node info: {e}')
+    
+    def get_channel_balances(self) -> List[Dict]:
+        """ Get balance information for all channels """
+        try:
             response = self.stub.ListChannels(ln.ListChannelsRequest())
             channels = []
             for channel in response.channels:
@@ -63,5 +72,100 @@ class LndClient:
                     'capacity': channel.capacity,
                     'local_balance': channel.local_balance,
                     'remote_balance': channel.remote_balance,
-                    
+                    'remote_pubkey': channel.remote_pubkey
                 })
+            return channels
+        except Exception as e:
+            raise Exception(f'Failed to get channel balances: {e}')
+    
+    def get_forwarding_history(self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None) -> List[Dict]:
+        """ Get forwarding history for the node """
+
+        # Fetches payments that were routed through this node ... 🔅
+        try:
+            request = ln.ForwardingHistoryRequest(
+                start_time=int(start_time.timestamp()) if start_time else 0,
+                end_time=int(end_time.timestamp()) if end_time else 0,
+                num_max_events=1000
+            )
+            response = self.stub.ForwardingHistory(request)
+
+            # Requesting a list of forwarding events between the given timestamps ...
+            forwarding_events = []
+            for event in response.forwarding_events:
+                forwarding_events.append({
+                    'timestamp': datetime.fromtimestamp(event.timestamp),
+                    'chan_id_in': event.chan_id_in,
+                    'chain_id_out': event.chain_id_out,
+                    'amt_in': event.amt_in,
+                    'amt_out': event.amt_out,
+                    'fee': event.fee
+                })
+                return forwarding_events
+        except Exception as e:
+                raise Exception(f'Error fetching forwarding history: {e}')
+    
+    def create_invoice(self, amount: int, memo: str = "") -> str:
+        """ Create a payment invoice 
+        
+        Args:
+            amount (int): Amount in satoshis
+            memo (str): Optional memo/description
+
+        Returns:
+            str: Payment request string
+        """
+        try:
+            response = self.stub.Addinvoice(ln.Invoice(
+                value=amount,
+                memo=memo
+            ))
+            return response.payment_request
+        except Exception as e:
+            raise Exception(f'Failed to create invoice: {e}')
+    
+    def pay_invoice(self, payment_request: str) -> Dict:
+        """ Pay a Lightning invoice 
+        
+        Args:
+            payment_request (str): The payment request string
+
+        Returns:
+            Dict: Payment result information
+        """
+        try:
+            response = self.stub.SendPaymentSync(ln.SendRequest(
+                payment_request=payment_request
+            ))
+            return {
+                'payment_hash': response.payment_hash.hex(),
+                'payment_preimage': response.payment_preimage.hex(),
+                'payment_route': {
+                    'total_time_lock': response.payment_route_route.total_time_lock,
+                    'total_fees': response.payment_route.total_fees,
+                    'total_amt': response.payment_route.total_amt
+                }
+            }
+        except Exception as e:
+            raise Exception(f'Failed to pay invoice: {e}')
+
+# Example usage
+if __name__ == "__main__":
+    # Connect to Alice's node
+    alice = LndClient('alice')
+
+    try:
+        # Get node info
+        info = alice.get_info()
+        print("Node Info:", info)
+
+        # Get channel balances
+        channels = alice.get_channel_balances()
+        print("\Channel Balances:", channels)
+
+        # Get recent forwarding history
+        history = alice.get_forwarding_history()
+        print("\Forwarding History:", history)
+
+    except Exception as e:
+        print(f"Error: {e}")
