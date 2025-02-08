@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "lightninglens"
+version = "0.1.0"
+description = "AI-driven liquidity prediction and optimization for Lightning Network nodes"
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+torch = "^2.0.0"
+networkx = "^2.8.0"
+pandas = "^1.5.0"
+numpy = "^1.23.0"
+lightning-rpc = "^0.3.0"
+pyyaml = "^6.0.0"
+plotly = "^5.13.0"
+scikit-learn = "^1.2.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.3.1"
+pytest-cov = "^4.0.0"
+black = "^22.3.0"
+isort = "^5.10.1"
+flake8 = "^4.0.1"
+jupyter = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3 
