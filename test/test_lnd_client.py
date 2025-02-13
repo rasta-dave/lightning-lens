@@ -157,3 +157,18 @@ class TestLndClient:
         assert history[0]['amt_in'] == 1000
         assert history[0]['fee'] == 10
     
+    def test_create_invoice_success(self, mock_client):
+        """ Test successful create_invoice call """
+        mock_response = MagicMock()
+        mock_response.payment_request = 'lnbc...'
+
+        mock_client.stub.AddInvoice.return_value = mock_response
+
+        payment_request = mock_client.create_invoice(1000, "Test payment")
+        assert payment_request == 'lnbc...'
+
+        # Verify correct parameters were passed ...
+        mock_client.stub.AddInvoice.assert_called_once()
+        call_args = mock_client.stub.AddInvoice.call_args[0][0]
+        assert call_args.value == 1000
+        assert call_args.memo == "Test payment"

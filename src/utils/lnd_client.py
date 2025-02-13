@@ -106,17 +106,9 @@ class LndClient:
                 raise Exception(f'Error fetching forwarding history: {e}')
     
     def create_invoice(self, amount: int, memo: str = "") -> str:
-        """ Create a payment invoice 
-        
-        Args:
-            amount (int): Amount in satoshis
-            memo (str): Optional memo/description
-
-        Returns:
-            str: Payment request string
-        """
+        """ Create a payment invoice """
         try:
-            response = self.stub.Addinvoice(ln.Invoice(
+            response = self.stub.AddInvoice(ln.Invoice(
                 value=amount,
                 memo=memo
             ))
