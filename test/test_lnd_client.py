@@ -100,3 +100,27 @@ class TestLndClient:
             mock_client.get_info()
         assert 'Error fetching node info' in str(exc_info.value)
 
+    def test_get_channel_balances_success(self, mock_client):
+        """ Test successful get_channel_balances call """
+        # Preparing the mock channel ...
+        mock_channel = MagicMock()
+        mock_channel.chan_id = '123456'
+        mock_channel.capacity = 1000000
+        mock_channel.local_balance = 500000
+        mock_channel.remote_balance = 500000
+        mock_channel.remote_pubkey = 'remote_pubkey'
+
+        # Preparing the mock response ...
+        mock_response = MagicMock()
+        mock_response.channels = [mock_channel]
+
+        mock_client.stub.ListChannels.return_value = mock_response
+
+        channels = mock_client.get_channel_balances()
+
+        assert len(channels) == 1
+        assert channels[0]['channel_id'] == '123456'
+        assert channels[0]['capacity'] == 1000000
+        assert channels[0]['local_balance'] == 500000
+        assert channels[0]['remote_balance'] == 500000
+        assert channels[0]['remote_pubkey'] == 'remote_pubkey'
