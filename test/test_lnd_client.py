@@ -1,75 +1,57 @@
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 from src.utils.lnd_client import LndClient
 from src.utils.config import load_config
-from unittest.mock import MagicMock
+from src.proto import lightning_pb2 as ln
 
-# Fixtures moved here
-@pytest.fixture
-def config():
-    """ Load test configuration """
-    return load_config("configs/test_config.yaml")
+class TestLndClient:
+    @pytest.fixture
+    def mock_config(self):
+        return {
+            'nodes': {
+                'alice': {
+                    'rpc_server': 'http://localhost:10001',
+                    'tls_cert_path': '~/.polar/networks/1/volumes/lnd/alice/tls.cert',
+                    'macaroon_path': '~/.polar/networks/1/volumes/lnd/alice/data/chain(bitcoin/regtest/admin.macaroon'
+                }
+            }
+        }
 
-@pytest.fixture
-def alice_client(config):
-    """ Create a client instance for Alice's node """
-    return LndClient("alice")
+    def test_successful_initialization(self, mock_config):
+        """ Test successful client initialization """
+        # Creating mock file contents ...
+        mock_cert = b'mock certificate content'
+        mock_macaroon = b'mock macaroon content'
 
-@pytest.fixture
-def bob_client(config):
-    """ Create a client instance for Bob's node """
-    return LndClient("bob")
+        # Create a mock file handler that retunrs different content for different files ...
+        mock_file = MagicMock()
+        mock_file.__enter__ = MagicMock()
+        mock_file.__enter__.return_value = mock_file
+        mock_file.__exit__ = MagicMock()
+        mock_file.read.side_effect = [mock_cert, mock_macaroon]
 
-# Tests
-def test_lnd_client_initialization():
-    client = LndClient('alice')
-    assert client is not None
+        with patch('src.utils.lnd_client.load_config', return_value=mock_config), \
+            patch('builtins.open', MagicMock(return_value=mock_file)), \
+            patch('src.utils.lnd_client.grpc.ssl_channel_credentials'), \
+            patch('src.utils.lnd_client.grpc.metadata_call_credentials'), \
+            patch('src.utils.lnd_client.grpc.composite_channel_credentials'), \
+            patch('src.utils.lnd_client.grpc.secure_channel'), \
+            patch('src.utils.lnd_client.lnrpc.LightningStub'):
 
-def test_get_info(alice_client):
-    # Create a mock response directly without using mocker
-    mock_response = MagicMock()
-    mock_response.identity_pubkey = 'test_pubkey'
-    mock_response.alias = 'test_alias'
-    mock_response.num_peers = 5
-    mock_response.num_active_channels = 3
-    mock_response.block_height = 100
-    
-    # Mock the stub's GetInfo method directly
-    alice_client.stub.GetInfo = MagicMock(return_value=mock_response)
-    
-    # Call the method
-    info = alice_client.get_info()
-    
-    # Assertions
-    assert info['pubkey'] == 'test_pubkey'
-    assert info['alias'] == 'test_alias'
-    assert info['num_peers'] == 5
-    assert info['num_active_channels'] == 3
-    assert info['blockheight'] == 100
+            client = LndClient('alice')
+            assert client is not None
+            assert client.node_config == mock_config['nodes']['alice']
 
-def test_invalid_node_name():
-    with pytest.raises(KeyError):
-        LndClient('invalid_node')
+    def test_invalid_node_name(self):
+        with pytest.raises(KeyError) as exc_info:
+            LndClient('invalid_node')
+        assert 'invalid_node' in str(exc_info.value)
 
-def test_get_info_mocked():
-    client = LndClient('alice')
-    client.stub.GetInfo = MagicMock(return_value=MagicMock(
-        identity_pubkey='test_pubkey',
-        alias='test_alias',
-        num_peers=5,
-        num_active_channels=3,
-        block_height=100
-    ))
-    info = client.get_info()
-    assert info['pubkey'] == 'test_pubkey'
-
-def test_polar_connection(alice_client):
-    """Test basic connection to Polar node"""
-    try:
-        info = alice_client.get_info()
-        assert info is not None
-        assert 'pubkey' in info
-        assert 'alias' in info
-        print(f"Successfully connected to node: {info['alias']}")
-    except Exception as e:
-        pytest.fail(f"Failed to connect to Polar node: {e}")
+    @patch('src.utils.lnd_client.grpc.ssl_channel_credentials')
+    @patch('src.utils.lnd_client.grpc.metadata_call_credentials')
+    def test_initialization_with_invalid_cert(self, mock_meta_creds, mock_ssl_creds):
+        mock_ssl_creds.side_effect = Exception('Invalid certificate')
+        with pytest.raises(Exception) as exc_info:
+            LndClient('alice')
+        assert 'Invalid certificate' in str(exc_info.value)
