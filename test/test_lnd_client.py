@@ -91,3 +91,12 @@ class TestLndClient:
         assert info['num_peers'] == 5
         assert info['num_active_channels'] == 3
         assert info['blockheight'] == 100
+
+    def test_get_info_failure(self, mock_client):
+        """ Test get_info with RPC failure """
+        mock_client.stub.GetInfo.side_effect = grpc.RpcError('RPC Error')
+
+        with pytest.raises(Exception) as exc_info:
+            mock_client.get_info()
+        assert 'Error fetching node info' in str(exc_info.value)
+
