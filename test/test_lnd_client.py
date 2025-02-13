@@ -132,3 +132,28 @@ class TestLndClient:
         with pytest.raises(Exception) as exc_info:
             mock_client.get_channel_balances()
         assert 'Failed to get channel balances' in str(exc_info.value)
+
+    def test_get_forwarding_history_success(self, mock_client):
+        """ Test successful get_forwarding_history call """
+        # Preparing the mock event ...
+        mock_event = MagicMock()
+        mock_event.timestamp = int(datetime.now().timestamp())
+        mock_event.chan_id_in = '123'
+        mock_event.chain_id_out = '456'
+        mock_event.amt_in = 1000
+        mock_event.amt_out = 990
+        mock_event.fee = 10
+
+        # Preparing mock response ...
+        mock_response = MagicMock()
+        mock_response.forwarding_events = [mock_event]
+
+        mock_client.stub.ForwardingHistory.return_value = mock_response
+
+        history = mock_client.get_forwarding_history()
+
+        assert len(history) == 1
+        assert history[0]['chan_id_in'] == '123'
+        assert history[0]['amt_in'] == 1000
+        assert history[0]['fee'] == 10
+    
