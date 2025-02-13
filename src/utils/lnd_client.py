@@ -36,7 +36,7 @@ class LndClient:
         macaroon = codecs.encode(macaroon_bytes, 'hex')
 
         cert_creds = grpc.ssl_channel_credentials(cert)
-        auth_creds = grpc.metadta_call_credentials(
+        auth_creds = grpc.metadata_call_credentials(
             lambda _, cb: cb([('macaroon', macaroon)], None)
         )
         combined_creds = grpc.composite_channel_credentials(cert_creds, auth_creds)
@@ -161,11 +161,11 @@ if __name__ == "__main__":
 
         # Get channel balances
         channels = alice.get_channel_balances()
-        print("\Channel Balances:", channels)
+        print("Channel Balances:", channels)
 
         # Get recent forwarding history
         history = alice.get_forwarding_history()
-        print("\Forwarding History:", history)
+        print("Forwarding History:", history)
 
     except Exception as e:
         print(f"Error: {e}")

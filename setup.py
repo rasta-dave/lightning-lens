@@ -6,14 +6,16 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
-        "torch>=2.0.0",
-        "networkx>=2.8.0",
+        "grpcio>=1.54.0",
+        "protobuf>=4.21.0",
+        "googleapis-common-protos>=1.56.0",
+        "PyYAML>=6.0",
         "pandas>=1.5.0",
         "numpy>=1.23.0",
-        "lightning-rpc>=0.3.0",
-        "pyyaml>=6.0.0",
+        "torch>=2.0.0",
+        "networkx>=2.8.0",
         "plotly>=5.13.0",
-        "scikit-learn>=1.2.0",
+        "pytest>=7.3.1",
     ],
     extras_require={
         "dev": [

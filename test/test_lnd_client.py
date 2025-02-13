@@ -18,3 +18,7 @@ class TestLndClient:
     def bob_client(self, config):
         """ Create a client instance for Bob's node """
         return LndClient("bob")
+
+def test_lnd_client_initialization():
+    client = LndClient('alice')
+    assert client is not None
