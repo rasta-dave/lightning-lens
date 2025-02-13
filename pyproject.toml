@@ -19,6 +19,7 @@ plotly = "^5.13.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
 pytest-cov = "^4.0.0"
+pytest-mock = "^3.10.0"
 black = "^22.3.0"
 isort = "^5.10.1"
 flake8 = "^4.0.1"
