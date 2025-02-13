@@ -124,3 +124,11 @@ class TestLndClient:
         assert channels[0]['local_balance'] == 500000
         assert channels[0]['remote_balance'] == 500000
         assert channels[0]['remote_pubkey'] == 'remote_pubkey'
+
+    def test_get_channel_balances_failure(self, mock_client):
+        """ Test get_channel_balances with RPC failure """
+        mock_client.stub.ListChannels.side_effect = grpc.RpcError('RPC Error')
+
+        with pytest.raises(Exception) as exc_info:
+            mock_client.get_channel_balances()
+        assert 'Failed to get channel balances' in str(exc_info.value)
