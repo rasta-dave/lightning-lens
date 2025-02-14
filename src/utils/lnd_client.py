@@ -117,14 +117,7 @@ class LndClient:
             raise Exception(f'Failed to create invoice: {e}')
     
     def pay_invoice(self, payment_request: str) -> Dict:
-        """ Pay a Lightning invoice 
-        
-        Args:
-            payment_request (str): The payment request string
-
-        Returns:
-            Dict: Payment result information
-        """
+        """ Pay a Lightning invoice """
         try:
             response = self.stub.SendPaymentSync(ln.SendRequest(
                 payment_request=payment_request
@@ -133,7 +126,7 @@ class LndClient:
                 'payment_hash': response.payment_hash.hex(),
                 'payment_preimage': response.payment_preimage.hex(),
                 'payment_route': {
-                    'total_time_lock': response.payment_route_route.total_time_lock,
+                    'total_time_lock': response.payment_route.total_time_lock,
                     'total_fees': response.payment_route.total_fees,
                     'total_amt': response.payment_route.total_amt
                 }

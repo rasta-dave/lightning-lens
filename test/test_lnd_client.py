@@ -172,3 +172,28 @@ class TestLndClient:
         call_args = mock_client.stub.AddInvoice.call_args[0][0]
         assert call_args.value == 1000
         assert call_args.memo == "Test payment"
+
+    def test_pay_invoice_success(self, mock_client):
+        """ Test successful pay_invoice call """
+        # Create nested mocks for the response structure
+        mock_route = MagicMock()
+        mock_route.total_time_lock = 100
+        mock_route.total_fees = 10
+        mock_route.total_amt = 1000
+
+        mock_response = MagicMock()
+        mock_response.payment_hash = b'hash'
+        mock_response.payment_preimage = b'preimage'
+        mock_response.payment_route = mock_route  # Attach the mock route
+
+        mock_client.stub.SendPaymentSync.return_value = mock_response
+
+        result = mock_client.pay_invoice('lnbc...')
+
+        assert result['payment_hash'] == b'hash'.hex()
+        assert result['payment_preimage'] == b'preimage'.hex()
+        assert result['payment_route']['total_time_lock'] == 100
+        assert result['payment_route']['total_fees'] == 10
+        assert result['payment_route']['total_amt'] == 1000
+
+        
