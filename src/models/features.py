@@ -25,23 +25,30 @@ class FeatureProcessor:
             raise ValueError(f'Missing required columns: {missing_cols}')
         
     def calculate_balance_velocity(self, data: pd.DataFrame) -> pd.DataFrame:
-        """ Calculate rate of change in local balance """
+        """ Calculate rate of change in local balance 
+        
+        Args:
+            data (pd.DataFrame): Channel metrics data
+            
+        Returns:
+            pd.DataFrame: Data with balance_velocity column added
+        """
         df = data.copy()
         df = df.sort_values('timestamp')
 
-        # Calculate balance changes ...
-        df['balance_velocity'] = df.groupby('channel_id')['timestamp'].diff().dt.total_seconds() / 3600
+        # Calculate balance changes
+        df['balance_change'] = df.groupby('channel_id')['local_balance'].diff()
 
-        # Calculate time differences in hours ...
+        # Calculate time differences in hours
         df['time_diff'] = df.groupby('channel_id')['timestamp'].diff().dt.total_seconds() / 3600
 
         # Calculate velocity (balance change per hour)
-        df['balance_velocity'] = df['balance_velocity'] / df['time_diff']
+        df['balance_velocity'] = df['balance_change'] / df['time_diff']
 
-        #Fill first entry (which will be NaN) with 0 ...
+        # Fill first entry (which will be NaN) with 0
         df['balance_velocity'] = df['balance_velocity'].fillna(0)
 
-        # Drop temporary column ...
-        df = df.drop('time_diff', axis=1)
+        # Drop temporary columns
+        df = df.drop(['balance_change', 'time_diff'], axis=1)
 
         return df
