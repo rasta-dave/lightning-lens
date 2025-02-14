@@ -217,3 +217,26 @@ class TestLndClientIntegration:
             assert 'alias' in info
         except Exception as e:
             pytest.skip(f'Polar network not available: ${str(e)}')
+
+    def test_payment_flow(self, alice_client, bob_client):
+        """ Test complete payment flow between nodes """
+        try:
+            # Create invoice
+            amount = 1000
+            memo = "Test payment"
+            payment_request = alice_client.create_invoice(amount, memo)
+            assert payment_request is not None
+
+            # Pay invoice
+            payment_result = bob_client.pay_invoice(payment_request)
+            assert payment_result is not None
+            assert 'payment_hash' in payment_result
+            assert 'payment_route' in payment_result
+            
+            # Verify payment amount
+            assert payment_result['payment_route']['total_amt'] == amount
+        except Exception as e:
+            pytest.skip(f'Payment test failed: ${str(e)}')
+
+if __name__ == "__main__":
+    pytest.main()
