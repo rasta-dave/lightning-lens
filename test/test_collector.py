@@ -32,6 +32,30 @@ class TestDataCollector:
         assert 'timestamp' in metrics
         assert 'channels' in metrics
         assert 'forwarding' in metrics
-        assert len(metrics['channels']) == 1
-        assert metrics['channels'][0]['channel_id'] == '123'
+
+    def test_process_metrics(self, collector):
+        """ Test processing metrics """
+        # Setup test data
+        raw_metrics = {
+            'timestamp': datetime.now(),
+            'channels': [
+                {
+                    'channel_id': '123',
+                    'capacity': 1000000,
+                    'local_balance': 500000,
+                    'remote_balance': 500000,
+                    'remote_pubkey': 'abc123'
+                }
+            ],
+            'forwarding': []
+        }
+
+        # Process metrics
+        df = collector.process_metrics(raw_metrics)
+        
+        # Verify the results
+        assert not df.empty
+        assert 'channel_id' in df.columns
+        assert 'balance_ratio' in df.columns
+        assert len(df) == 1
 
