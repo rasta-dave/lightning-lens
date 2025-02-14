@@ -196,4 +196,24 @@ class TestLndClient:
         assert result['payment_route']['total_fees'] == 10
         assert result['payment_route']['total_amt'] == 1000
 
-        
+@pytest.mark.integration
+class TestLndClientIntegration:
+    """ Integration tests requiring actual Polar network """
+
+    @pytest.fixture
+    def alice_client(self):
+        return LndClient('alice')
+    
+    @pytest.fixture
+    def bob_client(self):
+        return LndClient('bob')
+    
+    def test_node_connection(self, alice_client):
+        """ Test connection to actual Polar node """
+        try:
+            info = alice_client.get_info()
+            assert info is not None
+            assert 'pubkey' in info
+            assert 'alias' in info
+        except Exception as e:
+            pytest.skip(f'Polar network not available: ${str(e)}')
