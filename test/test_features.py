@@ -28,5 +28,12 @@ class TestFeatureProcessor:
     def feature_processor(self):
         return FeatureProcessor()
     
-    
+    def test_calculate_balance_velocity(self, feature_processor, sample_data):
+        """ Test calculation of balance change velocity """
+        features = feature_processor.calculate_balance_velocity(sample_data)
+
+        assert 'balance_velocity' in features.columns
+        assert len(features) == len(sample_data)
+        assert not features['balance_velocity'].isnull().any()
+
 
