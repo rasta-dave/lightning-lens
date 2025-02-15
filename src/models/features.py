@@ -52,3 +52,17 @@ class FeatureProcessor:
         df = df.drop(['balance_change', 'time_diff'], axis=1)
 
         return df
+    
+    def calculate_liquidity_stress(self, data: pd.DataFrame) -> pd.DataFrame:
+        """ Calculate liquidity stress indicators """
+        df = data.copy()
+
+        # Calculate how close the balance is to either extreme
+        df['liquidity_stress'] = df.apply(
+            lambda row: max(
+                1 - (row['local_balance'] / row['capacity']),
+                row['local_balance'] / row['capacity']
+            ), axis=1
+        )
+
+        return df
