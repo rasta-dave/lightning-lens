@@ -66,3 +66,12 @@ class FeatureProcessor:
         )
 
         return df
+    
+    def generate_time_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """ Generate time-based features from timestamp """
+        df = data.copy()
+
+        df['hour_of_day'] = df['timestamp'].dt.hour
+        df['day_of_week'] = df['timestamp'].dt.dayofweek
+
+        return df
