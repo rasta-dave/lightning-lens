@@ -52,5 +52,29 @@ class TestFeatureProcessor:
         assert all(features['hour_of_day'].between(0, 23))
         assert all(features['day_of_week'].between(0, 6))
 
+    def test_process_features(self, feature_processor, sample_data):
+        """ Test complete feature processing pipeline """
+        features = feature_processor.process_features(sample_data)
+
+        # Check all expected features are present ...
+        expected_features = [
+            'balance_velocity',
+            'liquidity_stress',
+            'hour_of_day',
+            'day_of_week',
+            'balance_ratio'
+        ]
+
+        for feature in expected_features:
+            assert feature in features.columns
+
+        # Check no Nan values in features ...
+        assert not features.isnull().any().any()
+
+        # Check feature ranges ...
+        assert all(features['balance_ratio'].between(0, 1))
+        assert all(features['liquidity_stress'].between(0, 23))
+        assert all(features['day_of_week'].between(0, 6))
+
 
 
