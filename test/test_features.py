@@ -76,5 +76,23 @@ class TestFeatureProcessor:
         assert all(features['liquidity_stress'].between(0, 1))
         assert all(features['day_of_week'].between(0, 6))
 
+    def test_invalid_data_handling(self, feature_processor):
+        """ Test handling of invalid input data """
+        # Test empty dataframe
+        empty_df = pd.DataFrame()
+        with pytest.raises(ValueError):
+            feature_processor.validate_input(empty_df)
+
+        # Test missing required columns
+        invalid_df = pd.DataFrame({
+            'timestamp': ['2024-02-16'],
+            'channel_id': ['123'],
+            'local_balance': [100],
+            'capacity': [200]
+
+        })
+        with pytest.raises(ValueError):
+            feature_processor.validate_input(invalid_df)
+
 
 
