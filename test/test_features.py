@@ -36,4 +36,11 @@ class TestFeatureProcessor:
         assert len(features) == len(sample_data)
         assert not features['balance_velocity'].isnull().any()
 
+    def test_calculate_liquidity_stress(self, feature_processor, sample_data):
+        """ Test calculation of liquidity stress indicators """
+        features = feature_processor.calculate_liquidity_stress(sample_data)
+
+        assert 'liquidity_stress' in features.columns
+        assert all(features['liquidity_stress'].between(0, 1))
+
 
