@@ -75,3 +75,30 @@ class FeatureProcessor:
         df['day_of_week'] = df['timestamp'].dt.dayofweek
 
         return df
+    
+    def process_features(self, data: pd.DataFrame) -> pd.DataFrame:
+        """ Process all features for the model """
+        # Validate input data ...
+        self.validate_input(data)
+
+        # Create a copy to avoid modifying input ..
+        df = data.copy()
+
+        # Calculate all features ...
+        df = self.calculate_balance_velocity(df)
+        df = self.calculate_liquidity_stress(df)
+        df = self.generate_time_features(df)
+
+        # Select and order final features ... 🚀
+        features = [
+            'channel_id',
+            'timestamp',
+            'balance_velocity',
+            'liquidity_stress',
+            'hour_of_day',
+            'day_of_week',
+            'balance_ratio'
+        ]
+
+        return df[features].copy()
+
