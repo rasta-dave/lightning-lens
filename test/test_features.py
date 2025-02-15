@@ -43,4 +43,14 @@ class TestFeatureProcessor:
         assert 'liquidity_stress' in features.columns
         assert all(features['liquidity_stress'].between(0, 1))
 
+    def test_generate_time_features(self, feature_processor, sample_data):
+        """ Test generation of time-based features """
+        features = feature_processor.generate_time_features(sample_data)
+
+        assert 'hour_of_day' in features.columns
+        assert 'day_of_week' in features.columns
+        assert all(features['hour_of_day'].between(0, 23))
+        assert all(features['day_of_week'].between(0, 6))
+
+
 
