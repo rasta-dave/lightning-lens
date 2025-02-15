@@ -73,7 +73,7 @@ class TestFeatureProcessor:
 
         # Check feature ranges ...
         assert all(features['balance_ratio'].between(0, 1))
-        assert all(features['liquidity_stress'].between(0, 23))
+        assert all(features['liquidity_stress'].between(0, 1))
         assert all(features['day_of_week'].between(0, 6))
 
 
