@@ -12,17 +12,17 @@ class TestLndClient:
         return {
             'nodes': {
                 'alice': {
-                    'rpc_server': 'http://localhost:10001',
-                    'tls_cert_path': '~/.polar/networks/1/volumes/lnd/alice/tls.cert',
-                    'macaroon_path': '~/.polar/networks/1/volumes/lnd/alice/data/chain(bitcoin/regtest/admin.macaroon'
+                    'rpc_server': 'lnd-alice:10009',
+                    'tls_cert_path': '/root/.lnd/tls.cert',
+                    'macaroon_path': '/root/.lnd/data/chain/bitcoin/regtest/admin.macaroon'
                 }
             }
         }
 
     @pytest.fixture
-    def mock_client(self):
+    def mock_client(self, mock_config):
         """ Create a mock LND client """
-        with patch('src.utils.lnd_client.load_config'), \
+        with patch('src.utils.lnd_client.load_config', return_value=mock_config), \
             patch('builtins.open', mock_open(read_data=b'mock_cert_data')), \
             patch('src.utils.lnd_client.grpc.ssl_channel_credentials'), \
             patch('src.utils.lnd_client.grpc.metadata_call_credentials'), \

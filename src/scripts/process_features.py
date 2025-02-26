@@ -9,11 +9,9 @@ from src.utils.lnd_client import LndClient
 def main():
     """ Main function to collect data and process features """
 
-    # Load configuration
-    config = load_config()
-
-    # Initialize components
-    client = LndClient('alice')
+    # Load Docker configuration
+    config_path = "lightning-docker-testnet/configs/test_docker.yaml"
+    client = LndClient('alice', config_path=config_path)
     collector = DataCollector(client)
     processor = FeatureProcessor()
 

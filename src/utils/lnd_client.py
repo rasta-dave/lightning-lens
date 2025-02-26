@@ -14,14 +14,16 @@ from .config import load_config
 class LndClient:
     """ ☋ Client for interacting with LND nodes """
 
-    def __init__(self, node_name: str, config_path: str = "configs/test_config.yaml"):
+    def __init__(self, node_name: str, config_path: str = "lightning-docker-testnet/configs/test_docker.yaml"):
         """ Initialize LND client for a specific node
 
         Args:
-            node_name (str): Name of the node (e.g., 'alice', 'bob', 'carol', etc.)
-            config_path (str): Path to config file
+            node_name (str): Name of the node (e.g., 'alice', 'bob')
+            config_path (str): Path to docker config file
         """
         self.config = load_config(config_path)
+        if node_name not in self.config['nodes']:
+            raise KeyError(f'Node {node_name} not found in config')
         self.node_config = self.config['nodes'][node_name]
         self.stub = self._create_stub()
 
@@ -117,14 +119,7 @@ class LndClient:
             raise Exception(f'Failed to create invoice: {e}')
     
     def pay_invoice(self, payment_request: str) -> Dict:
-        """ Pay a Lightning invoice 
-        
-        Args:
-            payment_request (str): The payment request string
-
-        Returns:
-            Dict: Payment result information
-        """
+        """ Pay a Lightning invoice """
         try:
             response = self.stub.SendPaymentSync(ln.SendRequest(
                 payment_request=payment_request
@@ -133,7 +128,7 @@ class LndClient:
                 'payment_hash': response.payment_hash.hex(),
                 'payment_preimage': response.payment_preimage.hex(),
                 'payment_route': {
-                    'total_time_lock': response.payment_route_route.total_time_lock,
+                    'total_time_lock': response.payment_route.total_time_lock,
                     'total_fees': response.payment_route.total_fees,
                     'total_amt': response.payment_route.total_amt
                 }
