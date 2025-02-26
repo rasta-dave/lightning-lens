@@ -22,3 +22,45 @@ class ModelTrainer:
         self.test_size = test_size
         self.random_state = random_state
         self.scaler = StandardScaler()
+
+    def prepare_data(self,
+                     data: pd.DataFrame,
+                     target_column: str) -> Tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray]:
+        """ prepare data for model training by splitting and scaling 
+        
+        Args:
+            data (pd.DataFrame): Input data with features and target
+            target_column (str): Name of the target column
+
+        Returns:
+            Tuple containing:
+                x_train (pd.DataFrame): Training features
+                x_test (pd.DataFrame): Testing features
+                y_train (np.ndarray): Training targets
+                y_test (np.ndarray): Testing targets
+        """
+        # Seperate features and target ...
+        y = data[target_column].values
+
+        # Remove non-feature columns ...
+        x = data.drop([target_column, 'channel_id', 'timestamp'], axis=1, errors='ignore')
+
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            x, y, test_size=self.test_size, random_state=self.random_state
+        )
+
+        # Scale features ...
+        X_train_scaled = pd.DataFrame(
+            self.scaler.fit_transform(X_train),
+            columns=X_train.columns
+        )
+
+        X_test_scaled = pd.DataFrame(
+            self.scaler.transform(X_test),
+            columns=X_test.columns
+        )
+
+        return X_train_scaled, X_test_scaled, y_train, y_test
+
+        
