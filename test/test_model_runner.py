@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import tempfile
 from unittest.mock import patch, MagicMock
-from src.scripts.model_runner import train_model
+from src.scripts.model_runner import train_model, predict_optimal_ratios
 
 class TestModelRunner:
     @pytest.fixture
@@ -98,7 +98,58 @@ class TestModelRunner:
             
             
 
+    @patch('src.scripts.model_runner.load_config')
+    @patch('src.scripts.model_runner.ModelTrainer')
+    def test_predict_optimal_ratios(self, mock_trainer_class, mock_load_config,
+                                    mock_config, sample_data, temp_csv, cleanup_files):
+        """ Test the predict_optimal_ratios function """
+        # Setup mocks ...
+        mock_load_config.return_value = mock_config
 
-    def test_predict_optimal_ratios(self):
-        pass
-    
+        mock_trainer = MagicMock()
+        mock_trainer_class.return_value = mock_trainer
+
+        # Mock model and scaler ...
+        mock_model = MagicMock()
+        mock_scaler = MagicMock()
+        mock_trainer.load_model.return_value = (mock_model, mock_scaler)
+
+        # Mock predictions ...
+        mock_predictions = np.array([0.3, 0.5, 0.7, 0.4, 0.6])
+        mock_trainer.predict.return_value = mock_predictions
+        
+        # Create temporary paths for model, scaler and output
+        with tempfile.NamedTemporaryFile(suffix='.pkl') as model_file, \
+            tempfile.NamedTemporaryFile(suffix='.pkl') as scaler_file, \
+            tempfile.NamedTemporaryFile(suffix='.csv') as output_file:
+
+            # Call the function ...
+            predict_optimal_ratios(
+                'dummy_config_path',
+                model_file.name,
+                scaler_file.name,
+                temp_csv,
+                output_file.name
+            )
+
+            # Verify the function called the right methods with right parameters
+            mock_load_config.assert_called_once_with('dummy_config_path')
+
+            # Check if model was loaded correctly ...
+            mock_trainer.load_model.assert_called_once_with(
+                model_file.name, scaler_file.name
+            )
+
+            # Check if predict was called
+            mock_trainer.predict.assert_called_once()
+
+            # Verify the output file was created
+            assert os.path.exists(output_file.name)
+
+            # Read output file and check content
+            result_df = pd.read_csv(output_file.name)
+            assert 'predicted_optimal_ratio' in result_df.columns
+            assert 'adjustment_needed' in result_df.columns
+
+            # Add output file to cleanup list ...
+            cleanup_files.append(output_file.name)

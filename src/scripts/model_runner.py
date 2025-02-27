@@ -72,9 +72,37 @@ def predict_optimal_ratios(config_path, model_path, scaler_path, data_path, outp
         data_path (str): Path to data to predict on
         output_path (str): Path to save predictions
     """
-    
-    
-        
+    # Load Configuration & Data ...
+    config = load_config(config_path)
+    print(f"Loading data from {data_path}...")
+    features_df = pd.read_csv(data_path)
+
+    # Loading the trained model ...
+    trainer = ModelTrainer()
+    model, scaler = trainer.load_model(model_path, scaler_path)
+    trainer.scaler = scaler
+
+    predictions = trainer.predict(model, features_df)
+
+    # Calculating adjustments
+    result_df = features_df.copy()
+    result_df['predicted_optimal_ratio'] = predictions
+    result_df['current_ratio'] = result_df['balance_ratio']
+    result_df['adjustment_needed'] = result_df['predicted_optimal_ratio'] - result_df['current_ratio']
+
+    # Save predictions ...
+    result_df.to_csv(output_path, index=False)
+    print(f"\nPredictions saved to {output_path}")
+
+    # Identifying channels to rebalance
+    top_rebalance = result_df.loc[abs(result_df['adjustment_needed']).nlargest(5).index]
+    for _, row in top_rebalance.iterrows():
+        channel_id = row['channel_id']
+        current = row['current_ratio']
+        optimal = row['predicted_optimal_ratio']
+        adjustment = row['adjustment_needed']
+        direction = "Push funds OUT" if adjustment < 0 else "Pull funds IN"
+        print(f" Channel {channel_id}: {direction} by {abs(adjustment):.2f}")
 
 
 #############################################
