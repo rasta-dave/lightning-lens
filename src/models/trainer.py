@@ -5,7 +5,9 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 from datetime import datetime
 import os
-from typing import Tuple, Any
+from typing import Tuple, Any, Dict, Optional
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 class ModelTrainer:
     """ Trains a model to predict optimal channel balances """
@@ -63,4 +65,115 @@ class ModelTrainer:
 
         return X_train_scaled, X_test_scaled, y_train, y_test
 
+    def train_model(self,
+                    data: pd.DataFrame,
+                    target_column: str,
+                    model_params: Optional[Dict[str, Any]] = None) -> Tuple[Any, Dict[str, float]]:
+        """ Train a model on the provided data 
         
+        Args:
+            data (pd.DataFrame): Data with features and target
+            target_column (str): Name of the target column
+            model_params (Dict[str, Any], optional): Parameters for the model
+
+        Returns:
+            Tuple containing:
+                model: Trained model
+                metrics (Dict[str, float]): Model performance metrics
+        """
+        # Set default model parameters if not provided ...
+        if model_params is None:
+            model_params = {
+                'n_estimators': 100,
+                'max_depth': 10,
+                'min_samples_split': 2,
+                'random_state': self.random_state
+            }
+
+        # Prepare data ...
+        X_train, X_test, y_train, y_test = self.prepare_data(data, target_column)
+
+        # Initialize and train model ...
+        self.model = RandomForestRegressor(**model_params)
+        self.model.fit(X_train, y_train)
+
+        # Evalutae model ...
+        y_pred = self.model.predict(X_test)
+        metrics = self._calculate_metrics(y_test, y_pred)
+
+        return self.model, metrics
+
+    def _calculate_metrics(self, y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+        """ Calculate regression metrics
+
+        Args:
+            y_true (np.ndarray): True target values
+            y_pred (np.ndarray): Predicted target values
+
+        Returns:
+            Dict[str, float]: Dictionary containing metrics
+        """
+        mae = mean_absolute_error(y_true, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        r2 = r2_score(y_true, y_pred)
+
+        return {
+            'mae': mae,
+            'rmse': rmse,
+            'r2': r2
+        }
+
+    def save_model(self, model_path: str, scaler_path: str) -> None:
+        """ Save model and scaler to disk 
+        
+        Args:
+            model_path (str): Path to save the model
+            scaler_path (str): Path to save the scaler
+        """
+        # Create directories if they do not exist ...
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+
+        # save model and scaler ...
+        joblib.dump(self.model, model_path)
+        joblib.dump(self.scaler, scaler_path)
+
+    def load_model(self, model_path: str, scaler_path: str) -> Tuple[Any, StandardScaler]:
+        """ Load model and scaler from disk 
+        
+        Args:
+            model_path (str): Path to the saved model
+            scaler_path (str): Path to the saved scaler
+
+        Returns:
+            Tuple containing:
+                model: Loaded model
+                scaler (StandardScaler): Loaded scaler
+        """
+        model = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
+
+        return model, scaler
+
+    def predict(self, model: Any, data: pd.DataFrame) -> np.ndarray:
+        """ Make predictions using the trained model
+        
+        Args:
+            model: Trained model
+            data (pd.DataFrame): Data to make predictions on
+
+        Returns:
+            np.ndarray: Predictions
+        """
+        # Remove non-feature columns ...
+        X = data.drop(['channel_id', 'timestamp'], axis=1, errors='ignore')
+
+        # Scale features ...
+        X_scaled = pd.DataFrame(
+            self.scaler.transform(X),
+            columns=X.columns  # Preserve column names
+        )
+
+        # Make predictions ...
+        predictions = model.predict(X_scaled)
+
+        return predictions
