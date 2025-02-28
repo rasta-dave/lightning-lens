@@ -8,7 +8,9 @@ from unittest.mock import patch, MagicMock
 # Importing the functions from the visualizer script
 from src.scripts.visualizer import (
     create_output_directory,
-    load_data
+    load_data,
+    plot_balance_distribution,
+    plot_optimal_vs_current
 )
 
 class TestVisualizer:
@@ -61,3 +63,33 @@ class TestVisualizer:
         assert df is not None
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 5
+
+    @patch('matplotlib.pyplot.savefig')
+    def test_plot_balance_distribution(self, mock_savefig, sample_predictions):
+        """ Test balance distribution plot creation """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = plot_balance_distribution(sample_predictions, temp_dir)
+
+            # Check that savefig was called ...
+            assert mock_savefig.called
+
+            # Check that the function returns a path
+            assert result is not None
+            assert isinstance(result, str)
+            assert result.endswith('.png')
+
+    @patch('matplotlib.pyplot.savefig')
+    def test_plot_optimal_vs_current(self, mock_savefig, sample_predictions):
+        """ Test optimal vs current plot creation """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = plot_optimal_vs_current(sample_predictions, temp_dir)
+
+            # Check that savefig was called ...
+            assert mock_savefig.called
+
+            # Check that the function returns a path
+            assert result is not None
+            assert isinstance(result, str)
+            assert result.endswith('.png')
+    
+    
