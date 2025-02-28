@@ -4,17 +4,23 @@ from unittest.mock import MagicMock, patch, mock_open
 from src.utils.lnd_client import LndClient
 from src.proto import lightning_pb2 as ln
 import grpc
+import os
 
 class TestLndClient:
     @pytest.fixture
     def mock_config(self):
         """ Provide a mock config for testing """
         return {
+            'network': {
+                'type': 'regtest',
+                'bitcoin_rpc': 'http://bitcoind:18443'
+            },
             'nodes': {
                 'alice': {
-                    'rpc_server': 'lnd-alice:10009',
-                    'tls_cert_path': '/root/.lnd/tls.cert',
-                    'macaroon_path': '/root/.lnd/data/chain/bitcoin/regtest/admin.macaroon'
+                    'rpc_server': 'localhost:10001',
+                    'tls_cert_path': '/media/shahazzad/new/KOD/REGTEST-BITCOIN/lightning-docker-testnet/lnd-alice-data/tls.cert',
+                    'macaroon_path': '/media/shahazzad/new/KOD/REGTEST-BITCOIN/lightning-docker-testnet/lnd-alice-data/data/chain/bitcoin/regtest/admin.macaroon',
+                    'peers': ['bob']
                 }
             }
         }
@@ -33,22 +39,23 @@ class TestLndClient:
             client.stub = MagicMock()
             return client
 
-
     def test_successful_initialization(self, mock_config):
         """ Test successful client initialization """
-        # Creating mock file contents ...
+        # Creating mock file contents
         mock_cert = b'mock certificate content'
         mock_macaroon = b'mock macaroon content'
 
-        # Create a mock file handler that returns different content for different files ...
+        # Create a mock file handler that returns different content for different files
         mock_file = MagicMock()
         mock_file.__enter__ = MagicMock()
         mock_file.__enter__.return_value = mock_file
         mock_file.__exit__ = MagicMock()
         mock_file.read.side_effect = [mock_cert, mock_macaroon]
 
+        # Mock os.path.exists to return True
         with patch('src.utils.lnd_client.load_config', return_value=mock_config), \
             patch('builtins.open', MagicMock(return_value=mock_file)), \
+            patch('os.path.exists', return_value=True), \
             patch('src.utils.lnd_client.grpc.ssl_channel_credentials'), \
             patch('src.utils.lnd_client.grpc.metadata_call_credentials'), \
             patch('src.utils.lnd_client.grpc.composite_channel_credentials'), \

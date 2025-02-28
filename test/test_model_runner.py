@@ -125,11 +125,9 @@ class TestModelRunner:
 
             # Call the function ...
             predict_optimal_ratios(
-                'dummy_config_path',
                 model_file.name,
-                scaler_file.name,
                 temp_csv,
-                output_file.name
+                output_dir="data/predictions"
             )
 
             # Verify the function called the right methods with right parameters
@@ -153,3 +151,6 @@ class TestModelRunner:
 
             # Add output file to cleanup list ...
             cleanup_files.append(output_file.name)
+
+            # Verify predictions directory exists
+            assert os.path.exists("data/predictions")

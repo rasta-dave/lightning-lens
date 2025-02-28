@@ -30,9 +30,15 @@ class LndClient:
     def _create_stub(self) -> lnrpc.LightningStub:
         """ Create a gRPC stub for LND communication ⛵ """
         cert_path = os.path.expanduser(self.node_config['tls_cert_path'])
-        cert = open(cert_path, 'rb').read()
-
         macaroon_path = os.path.expanduser(self.node_config['macaroon_path'])
+        
+        # Check if files exist
+        if not os.path.exists(cert_path):
+            raise FileNotFoundError(f"TLS cert not found at: {cert_path}")
+        if not os.path.exists(macaroon_path):
+            raise FileNotFoundError(f"Macaroon not found at: {macaroon_path}")
+        
+        cert = open(cert_path, 'rb').read()
         with open(macaroon_path, 'rb') as f:
             macaroon_bytes = f.read()
         macaroon = codecs.encode(macaroon_bytes, 'hex')
@@ -110,10 +116,13 @@ class LndClient:
     def create_invoice(self, amount: int, memo: str = "") -> str:
         """ Create a payment invoice """
         try:
-            response = self.stub.AddInvoice(ln.Invoice(
-                value=amount,
-                memo=memo
-            ))
+            response = self.stub.AddInvoice(
+                ln.Invoice(
+                    value=amount,
+                    memo=memo
+                ),
+                timeout=10  # Add 10 second timeout
+            )
             return response.payment_request
         except Exception as e:
             raise Exception(f'Failed to create invoice: {e}')

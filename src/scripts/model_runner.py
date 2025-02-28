@@ -62,44 +62,43 @@ def train_model(config_path, data_path, output_dir, target_column="balance_ratio
 
 
 
-def predict_optimal_ratios(config_path, model_path, scaler_path, data_path, output_path):
-    """ Predict optimal ratios using the trained model
+def predict_optimal_ratios(model_path: str, data_path: str, output_dir: str = "data/predictions"):
+    """Make predictions using a trained model
     
     Args:
-        config_path (str): Path to configuration file
-        model_path (str): Path to trained model
-        scaler_path (str): Path to scaler
-        data_path (str): Path to data to predict on
-        output_path (str): Path to save predictions
+        model_path (str): Path to saved model
+        data_path (str): Path to input data
+        output_dir (str): Directory to save predictions (default: data/predictions)
     """
-    # Load Configuration & Data ...
-    config = load_config(config_path)
+    # Create predictions directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Load data
     print(f"Loading data from {data_path}...")
-    features_df = pd.read_csv(data_path)
-
-    # Loading the trained model ...
+    df = pd.read_csv(data_path)
+    
+    # Load model and make predictions
     trainer = ModelTrainer()
-    model, scaler = trainer.load_model(model_path, scaler_path)
-    trainer.scaler = scaler
-
-    predictions = trainer.predict(model, features_df)
-
-    # Calculating adjustments
-    result_df = features_df.copy()
+    model = trainer.load_model(model_path)
+    predictions = trainer.predict(model, df)
+    
+    # Generate timestamp for filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_path = os.path.join(output_dir, f"predictions_{timestamp}.csv")
+    
+    # Save predictions
+    result_df = df.copy()
     result_df['predicted_optimal_ratio'] = predictions
-    result_df['current_ratio'] = result_df['balance_ratio']
-    result_df['adjustment_needed'] = result_df['predicted_optimal_ratio'] - result_df['current_ratio']
-
-    # Save predictions ...
+    result_df['adjustment_needed'] = predictions - result_df['balance_ratio']
     result_df.to_csv(output_path, index=False)
+    
     print(f"\nPredictions saved to {output_path}")
-
-    # Identifying channels to rebalance
+    
+    # Print top rebalancing recommendations
+    print("\nTop rebalancing recommendations:")
     top_rebalance = result_df.loc[abs(result_df['adjustment_needed']).nlargest(5).index]
     for _, row in top_rebalance.iterrows():
         channel_id = row['channel_id']
-        current = row['current_ratio']
-        optimal = row['predicted_optimal_ratio']
         adjustment = row['adjustment_needed']
         direction = "Push funds OUT" if adjustment < 0 else "Pull funds IN"
         print(f" Channel {channel_id}: {direction} by {abs(adjustment):.2f}")
