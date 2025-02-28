@@ -7,7 +7,8 @@ from unittest.mock import patch, MagicMock
 
 # Importing the functions from the visualizer script
 from src.scripts.visualizer import (
-    create_output_directory
+    create_output_directory,
+    load_data
 )
 
 class TestVisualizer:
@@ -52,4 +53,11 @@ class TestVisualizer:
 
             assert os.path.exists(test_dir)
             assert result == test_dir
-            
+
+    def test_load_data(self, temp_csv):
+        """ Test loading data from CSV """
+        df = load_data(temp_csv)
+
+        assert df is not None
+        assert isinstance(df, pd.DataFrame)
+        assert len(df) == 5

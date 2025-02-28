@@ -18,5 +18,12 @@ def create_output_directory(output_dir):
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
-def load_data():
-    pass
+def load_data(predictions_csv):
+    """ Load predictions data from CSV file """
+    try:
+        df = pd.read_csv(predictions_csv)
+        print(f"Loaded data with {len(df)} channels")
+        return df
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return None
