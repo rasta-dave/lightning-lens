@@ -10,7 +10,9 @@ from src.scripts.visualizer import (
     create_output_directory,
     load_data,
     plot_balance_distribution,
-    plot_optimal_vs_current
+    plot_optimal_vs_current,
+    plot_rebalance_recommendations,
+    plot_feature_importance
 )
 
 class TestVisualizer:
@@ -92,4 +94,33 @@ class TestVisualizer:
             assert isinstance(result, str)
             assert result.endswith('.png')
     
+    @patch('matplotlib.pyplot.savefig')
+    def test_plot_rebalance_recommendations(self, mock_savefig, sample_predictions):
+        """ Test rebalance recommendations plot creation """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = plot_rebalance_recommendations(sample_predictions, temp_dir)
+
+            # Check that savefig was called ...
+            assert mock_savefig.called
+
+            # Check that the function returns a path ...
+            assert result is not None
+            assert isinstance(result, str)
+            assert result.endswith('.png')
+
+    @patch('matplotlib.pyplot.savefig')
+    def test_plot_feature_importance(self, mock_savefig, sample_predictions):
+        """ Test feature importance plot creation """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = plot_feature_importance(sample_predictions, temp_dir)
+
+            # Check that savefig was called ...
+            assert mock_savefig.called
+
+            # Check that the function returns a path
+            assert result is not None
+            assert isinstance(result, str)
+            assert result.endswith('.png')
     
+    
+

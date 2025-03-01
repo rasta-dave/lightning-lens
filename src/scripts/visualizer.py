@@ -101,5 +101,104 @@ def plot_optimal_vs_current(df, output_dir):
     print(f"✓ Created optimal vs current plot: {output_path}")
     return output_path
 
-def plot_rebalance_recommendations():
-    pass
+def plot_rebalance_recommendations(df, output_dir, top_n=10):
+    """ Create bar chart of top channels needing rebalancing """
+    # Sort by absolute adjustment needed and get top N ...
+    top_channels = df.loc[abs(df['adjustment_needed']).nlargest(top_n).index].copy()
+
+    # Sort by adjustment value for better visualization ...
+    top_channels = top_channels.sort_values('adjustment_needed')
+
+    # Set up plot ...
+    plt.figure(figsize=(12, 8))
+
+    # Create colormap based on adjustment direction ...
+    colors = ['#2a9d8f' if x > 0 else '#e63946' for x in top_channels['adjustment_needed']]
+
+    # Create horizontal bar chart
+    plt.barh(range(len(top_channels)), top_channels['adjustment_needed'], color=colors)
+
+    # Replace channel IDs with shorter versions for readability
+    labels = [f"Ch...{ch_id[-6:]}" for ch_id in top_channels['channel_id']]
+
+    # Add styling and labels
+    plt.yticks(range(len(top_channels)), labels)
+    plt.title(f'Top {top_n} Channels Needing Rebalancing', fontsize=16)
+    plt.xlabel('Adjustment Needed (+ means pull funds in, - means push funds out)', fontsize=12)
+    plt.ylabel('Channel ID', fontsize=12)
+    plt.grid(axis='x', alpha=0.3)
+
+    # Add a zero line...
+    plt.axvline(x=0, color='gray', linestyle='-', alpha=0.7)
+
+    # Add annotations with recommended actions for each channel
+    for i, (_, row) in enumerate(top_channels.iterrows()):
+        adjustment = row['adjustment_needed']
+        action = "Pull in" if adjustment > 0 else "Push out"
+        current = row['balance_ratio']
+        optimal = row['predicted_optimal_ratio']
+
+        annotation = f"{action} {abs(adjustment):.2f} ({current:.2f} -> {optimal:.2f})"
+
+        # Position the text on the correct side of the bar ...
+        if adjustment > 0:
+            plt.text(adjustment + 0.01, i, annotation, va='center')
+        else:
+            plt.text(adjustment - 0.01, i, annotation, va='center', ha='right')
+
+        # Save figure ...
+        plt.tight_layout()
+        output_path = os.path.join(output_dir, 'rebalance_recommendations.png')
+        plt.savefig(output_path, dpi=300)
+        plt.close()
+
+        print(f"✓ Created rebalance recommendations plot: {output_path}")
+        return output_path
+    
+def plot_feature_importance(df, output_dir, target_column='predicted_optimal_ratio'):
+    """ Create bar chart of feature importance """
+    # Skip if there's no model prediction data ...
+    if target_column not in df.columns:
+        print("No model predictions found, skipping feature importance plot")
+        return None
+    
+    # Select feature columns (include non-features)
+    non_features = ['channel_id', 'timestamp', 'predicted_optimal_ratio',
+                    'current_ratio', 'adjustment_needed']
+    feature_cols = [col for col in df.columns if col not in non_features]
+
+    if not feature_cols:
+        print("No feature columns found, skipping feature importance plot")
+        return None
+    
+    # Create and train a simple model to get feature importance ...
+    X = df[feature_cols]
+    y = df[target_column]
+
+    model = RandomForestRegressor(n_estimators=50, random_state=42)
+    model.fit(X, y)
+
+    # Get feature importance ...
+    feature_importance = pd.DataFrame({
+        'Feature': feature_cols,
+        'Importance': model.feature_importances_
+    }).sort_values('Importance', ascending=False)
+
+    # Create plot ...
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x='Importance', y='Feature', data=feature_importance, palette='viridis')
+
+    # Add styling and labels ...
+    plt.title('Feature Importance for Balance Prediction', fontsize=16)
+    plt.xlabel('Relative Importance', fontsize=12)
+    plt.tight_layout()
+
+    # Save figure ...
+    output_path = os.path.join(output_dir, 'feature_importance.png')
+    plt.savefig(output_path, dpi=300)
+    plt.close()
+
+    print(f"✓ Created feature importance plot: {output_path}")
+    return output_path
+
+    
