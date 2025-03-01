@@ -253,6 +253,50 @@ def create_summary_report(df, output_dir, visualizations):
     print(f"✓ Created summary report: {report_path}")
     return report_path
 
+def create_visualizations(predictions_csv, output_dir):
+        """ Create all visualizations from predictions data """
+        # Create output directory if needed
+        output_dir = create_output_directory(output_dir)
+
+        # Load data ...
+        df = load_data(predictions_csv)
+        if df is None:
+            return
+
+        print("\nGenerating visualizations ...")
+        visualizations = {}
+
+        # Create standard plots ...
+        visualizations['Balance Distribution'] = plot_balance_distribution(df, output_dir)
+        visualizations['Optimal vs Current Balance'] = plot_optimal_vs_current(df, output_dir)
+        visualizations['Rebalance Recommendations'] = plot_rebalance_recommendations(df, output_dir)
+
+        # Create feature importance plot if data available ...
+        visualizations['Feature Importance'] = plot_feature_importance(df, output_dir)
+
+        # Create summary report ...
+        report_path = create_summary_report(df, output_dir, visualizations)
+
+        print(f"\n✓ All visualizations and report created successfully in {output_dir}")
+        print(f"Summary report: {report_path}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create visualizations for Lightning Network channel balance analysis")
+
+    parser.add_argument("--predictions", required=True,
+                        help="Path to CSV file with model predictions")
+    parser.add_argument("--output", default="visualizations",
+                        help="Directory to save visualizations (default: visualizations/)")
+        
+    args = parser.parse_args()
+
+    create_visualizations(args.predictions, args.output)
+
+if __name__ == "__main__":
+    main()
+
+
 
 
     

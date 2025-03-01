@@ -13,7 +13,8 @@ from src.scripts.visualizer import (
     plot_optimal_vs_current,
     plot_rebalance_recommendations,
     plot_feature_importance,
-    create_summary_report
+    create_summary_report,
+    create_visualizations
 )
 
 class TestVisualizer:
@@ -144,7 +145,34 @@ class TestVisualizer:
                 assert "Lightning Lens Rebalancing Report" in content
                 assert "Total Channels Analyzed: 5" in content
 
-    
+    @patch('src.scripts.visualizer.plot_balance_distribution')
+    @patch('src.scripts.visualizer.plot_optimal_vs_current')
+    @patch('src.scripts.visualizer.plot_rebalance_recommendations')
+    @patch('src.scripts.visualizer.plot_feature_importance')
+    @patch('src.scripts.visualizer.create_summary_report')
+    def test_create_visualizations(self, mock_report, mock_feature, mock_rebalance,
+                                   mock_optimal, mock_balance, temp_csv):
+        """ Test the main visualization function """
+        # Set return values for mocks
+        mock_balance.return_value = "path/to/balance.png"
+        mock_optimal.return_value = "path/to/optimal.png"
+        mock_rebalance.return_value = "path/to/rebalance.png"
+        mock_feature.return_value = "path/to/feature.png"
+        mock_report.return_value = "path/to/report.md"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            create_visualizations(temp_csv, temp_dir)
+
+            # Verify all plotting functions were called ...
+            assert mock_balance.called
+            assert mock_optimal.called
+            assert mock_rebalance.called
+            assert mock_feature.called
+            assert mock_report.called
+            
+        
+
+
 
 
 
