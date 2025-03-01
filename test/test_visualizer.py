@@ -12,7 +12,8 @@ from src.scripts.visualizer import (
     plot_balance_distribution,
     plot_optimal_vs_current,
     plot_rebalance_recommendations,
-    plot_feature_importance
+    plot_feature_importance,
+    create_summary_report
 )
 
 class TestVisualizer:
@@ -122,5 +123,28 @@ class TestVisualizer:
             assert isinstance(result, str)
             assert result.endswith('.png')
     
+    def test_create_summary_report(self, sample_predictions):
+        """ Test summary report creation """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            visualizations = {
+                'Balance Distribution': 'path/to/balance_distribution.png',
+                'Optimal vs Current Balance': 'path/to/optimal_vs_current.png',
+                'Rebalance Recoomendations': 'path/to/rebalance_recommendations.png',
+                'Feature Importance': 'path/to/frature_importance.png'
+            }
+
+            result = create_summary_report(sample_predictions, temp_dir, visualizations)
+
+            # Check that report was created ...
+            assert os.path.exists(result)
+
+            # Check content
+            with open(result, 'r') as f:
+                content = f.read()
+                assert "Lightning Lens Rebalancing Report" in content
+                assert "Total Channels Analyzed: 5" in content
+
     
+
+
 

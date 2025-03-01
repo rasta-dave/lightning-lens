@@ -201,4 +201,60 @@ def plot_feature_importance(df, output_dir, target_column='predicted_optimal_rat
     print(f"✓ Created feature importance plot: {output_path}")
     return output_path
 
+def create_summary_report(df, output_dir, visualizations):
+    """ Create a text summary report of findings """
+    # Calculate key statistics ...
+    total_channels = len(df)
+    significant_rebalance = (abs(df['adjustment_needed']) > 0.1).sum()
+    pull_in_count = (df['adjustment_needed'] > 0.1).sum()
+    push_out_count = (df['adjustment_needed'] < -0.1).sum()
+
+    # Calculate percentages ...
+    pct_significant = significant_rebalance / total_channels * 100
+    pct_pull = pull_in_count / total_channels * 100
+    pct_push = push_out_count / total_channels * 100
+
+    # Build report
+    report = [
+        "# Lightning Lens Rebalancing Report",
+        f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"\n## Summary Statistics",
+        f"Total Channels Analyzed: {total_channels}",
+        f" - Channels Needing More Local Balance: {pull_in_count} ({pct_pull:.1f}%)",
+        f" - Channels Needing More Remote Balance: {push_out_count} ({pct_push:.1f}%)",
+        f"\n## Top 5 Rebalancing Recommendations"
+    ]
+
+    # Add top 5 recommendations ...
+    top_5 = df.loc[abs(df['adjustment_needed']).nlargest(5).index]
+    for _, row in top_5.iterrows():
+        ch_id = row['channel_id']
+        current = row['balance_ratio']
+        optimal = row['predicted_optimal_ratio']
+        adjustment = row['adjustment_needed']
+
+        direction = "Pull funds IN" if adjustment > 0 else "Push funds OUT"
+
+        report.append(f"- Channel {ch_id}:")
+        report.append(f" Current ratio: {current:.2f}, Optimal ratio: {optimal:.2f}")
+        report.append(f" {direction} by {abs(adjustment):.2f}")
+
+    # Add visualization paths to report ...
+    report.append("\n## Visualizations Generated")
+    for desc, path in visualizations.items():
+        if path:
+            report.append(f"- {desc}: {os.path.basename(path)}")
+
+    # Write report to file ...
+    report_path = os.path.join(output_dir, 'rebalance_report.md')
+    with open(report_path, 'w') as f:
+        f.write('\n'.join(report))
+
+    print(f"✓ Created summary report: {report_path}")
+    return report_path
+
+
+
+    
+
     
