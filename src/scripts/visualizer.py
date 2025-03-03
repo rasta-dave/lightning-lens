@@ -118,8 +118,14 @@ def plot_rebalance_recommendations(df, output_dir, top_n=10):
     # Create horizontal bar chart
     plt.barh(range(len(top_channels)), top_channels['adjustment_needed'], color=colors)
 
-    # Replace channel IDs with shorter versions for readability
-    labels = [f"Ch...{ch_id[-6:]}" for ch_id in top_channels['channel_id']]
+    # Improve channel ID formatting
+    def format_channel_id(ch_id):
+        ch_id = str(ch_id)
+        if len(ch_id) > 12:
+            return f"Ch...{ch_id[-6:]} ({ch_id[:6]}...)"
+        return f"Ch {ch_id}"
+
+    labels = [format_channel_id(ch_id) for ch_id in top_channels['channel_id']]
 
     # Add styling and labels
     plt.yticks(range(len(top_channels)), labels)
@@ -131,29 +137,22 @@ def plot_rebalance_recommendations(df, output_dir, top_n=10):
     # Add a zero line...
     plt.axvline(x=0, color='gray', linestyle='-', alpha=0.7)
 
-    # Add annotations with recommended actions for each channel
-    for i, (_, row) in enumerate(top_channels.iterrows()):
-        adjustment = row['adjustment_needed']
-        action = "Pull in" if adjustment > 0 else "Push out"
-        current = row['balance_ratio']
-        optimal = row['predicted_optimal_ratio']
+    # Add value labels on the bars
+    for i, adjustment in enumerate(top_channels['adjustment_needed']):
+        x_pos = adjustment + (0.01 if adjustment > 0 else -0.01)
+        ha = 'left' if adjustment > 0 else 'right'
+        plt.text(x_pos, i, f'{adjustment:.2f}', 
+                va='center', ha=ha,
+                fontsize=10, color='black')
 
-        annotation = f"{action} {abs(adjustment):.2f} ({current:.2f} -> {optimal:.2f})"
+    # Save figure ...
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, 'rebalance_recommendations.png')
+    plt.savefig(output_path, dpi=300)
+    plt.close()
 
-        # Position the text on the correct side of the bar ...
-        if adjustment > 0:
-            plt.text(adjustment + 0.01, i, annotation, va='center')
-        else:
-            plt.text(adjustment - 0.01, i, annotation, va='center', ha='right')
-
-        # Save figure ...
-        plt.tight_layout()
-        output_path = os.path.join(output_dir, 'rebalance_recommendations.png')
-        plt.savefig(output_path, dpi=300)
-        plt.close()
-
-        print(f"✓ Created rebalance recommendations plot: {output_path}")
-        return output_path
+    print(f"✓ Created rebalance recommendations plot: {output_path}")
+    return output_path
     
 def plot_feature_importance(df, output_dir, target_column='predicted_optimal_ratio'):
     """ Create bar chart of feature importance """
@@ -184,9 +183,20 @@ def plot_feature_importance(df, output_dir, target_column='predicted_optimal_rat
         'Importance': model.feature_importances_
     }).sort_values('Importance', ascending=False)
 
-    # Create plot ...
+    # Create plot with updated seaborn syntax
     plt.figure(figsize=(10, 6))
-    sns.barplot(x='Importance', y='Feature', data=feature_importance, palette='viridis')
+    ax = sns.barplot(
+        data=feature_importance,
+        x='Importance',
+        y='Feature',
+        hue='Feature',
+        legend=False,
+        palette='viridis'
+    )
+
+    # Add value labels to the bars
+    for i, v in enumerate(feature_importance['Importance']):
+        ax.text(v, i, f'{v:.3f}', va='center')
 
     # Add styling and labels ...
     plt.title('Feature Importance for Balance Prediction', fontsize=16)
@@ -225,19 +235,22 @@ def create_summary_report(df, output_dir, visualizations):
         f"\n## Top 5 Rebalancing Recommendations"
     ]
 
-    # Add top 5 recommendations ...
+    # Add top 5 recommendations with improved formatting
     top_5 = df.loc[abs(df['adjustment_needed']).nlargest(5).index]
     for _, row in top_5.iterrows():
-        ch_id = row['channel_id']
+        ch_id = str(row['channel_id'])
+        ch_id_short = f"{ch_id[:6]}...{ch_id[-6:]}" if len(ch_id) > 12 else ch_id
         current = row['balance_ratio']
         optimal = row['predicted_optimal_ratio']
         adjustment = row['adjustment_needed']
 
         direction = "Pull funds IN" if adjustment > 0 else "Push funds OUT"
 
-        report.append(f"- Channel {ch_id}:")
-        report.append(f" Current ratio: {current:.2f}, Optimal ratio: {optimal:.2f}")
-        report.append(f" {direction} by {abs(adjustment):.2f}")
+        report.append(f"- Channel {ch_id_short}:")
+        report.append(f"  • Current ratio: {current:.2f}")
+        report.append(f"  • Target ratio: {optimal:.2f}")
+        report.append(f"  • Action: {direction} by {abs(adjustment):.2f}")
+        report.append("")  # Add blank line between entries
 
     # Add visualization paths to report ...
     report.append("\n## Visualizations Generated")

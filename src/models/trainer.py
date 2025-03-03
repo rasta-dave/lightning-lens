@@ -155,25 +155,20 @@ class ModelTrainer:
         return model, scaler
 
     def predict(self, model: Any, data: pd.DataFrame) -> np.ndarray:
-        """ Make predictions using the trained model
-        
-        Args:
-            model: Trained model
-            data (pd.DataFrame): Data to make predictions on
+        """ Make predictions using the trained model """
+        # Get feature names from scaler
+        feature_names = self.scaler.feature_names_in_
 
-        Returns:
-            np.ndarray: Predictions
-        """
-        # Remove non-feature columns ...
-        X = data.drop(['channel_id', 'timestamp'], axis=1, errors='ignore')
+        # Select only the features used in training
+        X = data[feature_names]
 
-        # Scale features ...
+        # Scale features using the loaded scaler
         X_scaled = pd.DataFrame(
             self.scaler.transform(X),
-            columns=X.columns  # Preserve column names
+            columns=feature_names
         )
 
-        # Make predictions ...
+        # Make predictions
         predictions = model.predict(X_scaled)
 
         return predictions

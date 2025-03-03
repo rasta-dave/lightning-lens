@@ -62,29 +62,24 @@ def train_model(config_path, data_path, output_dir, target_column="balance_ratio
 
 
 
-def predict_optimal_ratios(model_path: str, data_path: str, output_dir: str = "data/predictions"):
+def predict_optimal_ratios(model_path: str, scaler_path: str, data_path: str, output_path: str):
     """Make predictions using a trained model
     
     Args:
         model_path (str): Path to saved model
+        scaler_path (str): Path to saved scaler
         data_path (str): Path to input data
-        output_dir (str): Directory to save predictions (default: data/predictions)
+        output_path (str): Path to save predictions
     """
-    # Create predictions directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
-    
     # Load data
     print(f"Loading data from {data_path}...")
     df = pd.read_csv(data_path)
     
     # Load model and make predictions
     trainer = ModelTrainer()
-    model = trainer.load_model(model_path)
+    model, scaler = trainer.load_model(model_path, scaler_path)
+    trainer.scaler = scaler  # Set the loaded scaler
     predictions = trainer.predict(model, df)
-    
-    # Generate timestamp for filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = os.path.join(output_dir, f"predictions_{timestamp}.csv")
     
     # Save predictions
     result_df = df.copy()
@@ -93,27 +88,35 @@ def predict_optimal_ratios(model_path: str, data_path: str, output_dir: str = "d
     result_df.to_csv(output_path, index=False)
     
     print(f"\nPredictions saved to {output_path}")
-    
-    # Print top rebalancing recommendations
-    print("\nTop rebalancing recommendations:")
-    top_rebalance = result_df.loc[abs(result_df['adjustment_needed']).nlargest(5).index]
-    for _, row in top_rebalance.iterrows():
-        channel_id = row['channel_id']
-        adjustment = row['adjustment_needed']
-        direction = "Push funds OUT" if adjustment < 0 else "Pull funds IN"
-        print(f" Channel {channel_id}: {direction} by {abs(adjustment):.2f}")
 
 
 #############################################
 
 def main():
-    parser = argparse.ArgumentParser(description='Train LightningLens model')
-    parser.add_argument('--config', default='configs/config.yaml', help='Path to config file')
-    parser.add_argument('--data', required=True, help='Path to processed features CSV')
-    parser.add_argument('--output', default='data/models', help='Output directory for model')
-    
+    parser = argparse.ArgumentParser(description='LightningLens Model Runner')
+    subparsers = parser.add_subparsers(dest='command', help='Command to run')
+
+    # Train command
+    train_parser = subparsers.add_parser('train', help='Train a new model')
+    train_parser.add_argument('--config', default='configs/config.yaml', help='Path to config file')
+    train_parser.add_argument('--data', required=True, help='Path to processed features CSV')
+    train_parser.add_argument('--output', default='data/models', help='Output directory for model')
+
+    # Predict command
+    predict_parser = subparsers.add_parser('predict', help='Make predictions with trained model')
+    predict_parser.add_argument('--model', required=True, help='Path to trained model file')
+    predict_parser.add_argument('--scaler', required=True, help='Path to fitted scaler')
+    predict_parser.add_argument('--data', required=True, help='Path to features CSV')
+    predict_parser.add_argument('--output', required=True, help='Path for predictions output')
+
     args = parser.parse_args()
-    train_model(args.config, args.data, args.output)
+
+    if args.command == 'train':
+        train_model(args.config, args.data, args.output)
+    elif args.command == 'predict':
+        predict_optimal_ratios(args.model, args.scaler, args.data, args.output)
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main()
