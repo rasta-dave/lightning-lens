@@ -155,6 +155,43 @@ tail -f lightning_lens_ws.log
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Real-time Learning
+
+LightningLens supports real-time learning from Lightning Network data:
+
+### Online Learning
+
+The system can learn continuously from transaction data as it arrives:
+
+```bash
+# Start HTTP server with online learning enabled
+python -m src.scripts.http_server
+
+# Start WebSocket client with online learning
+python -m src.scripts.websocket_client
+```
+
+### Hybrid Learning Approach
+
+LightningLens uses a hybrid approach that combines:
+
+1. **Online Learning**: Continuously updates the model as new data arrives
+2. **Batch Learning**: Periodically retrains the model using accumulated data
+
+This provides both immediate adaptation to network changes and long-term stability.
+
+### Training an Initial Model
+
+For best results, train an initial model before starting online learning:
+
+```bash
+# Train initial model from existing data
+python -m scripts.train_initial_model
+
+# Use a specific features file
+python -m scripts.train_initial_model --features data/processed/features_20250304_180000.csv
+```
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License

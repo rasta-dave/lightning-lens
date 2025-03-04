@@ -2,12 +2,13 @@
 """
 Cleanup Script for LightningLens
 
-This script removes CSV files from the data directories:
-- data/processed (transactions, features, channels)
-- data/raw (metrics)
-- data/predictions (predictions)
+This script removes data files from the following directories:
+- data/processed (transactions, features, channels CSV files)
+- data/raw (metrics CSV files)
+- data/predictions (predictions CSV files)
+- data/models (model and scaler PKL files)
 
-The script preserves directory structures while cleaning up old data files.
+The script preserves directory structures while dddcleaning up old data files.
 """
 
 import os
@@ -17,7 +18,7 @@ from datetime import datetime, timedelta
 
 def cleanup_data_directory(directory, pattern, dry_run=False, keep_days=0):
     """
-    Remove CSV files from a specific directory.
+    Remove files from a specific directory.
     
     Args:
         directory (str): Directory path to clean
@@ -87,7 +88,8 @@ def cleanup_all_data(dry_run=False, keep_days=0, data_type=None):
     directories = {
         'processed': os.path.join(base_dir, 'data', 'processed'),
         'raw': os.path.join(base_dir, 'data', 'raw'),
-        'predictions': os.path.join(base_dir, 'data', 'predictions')
+        'predictions': os.path.join(base_dir, 'data', 'predictions'),
+        'models': os.path.join(base_dir, 'data', 'models')
     }
     
     # Define patterns based on data_type
@@ -96,7 +98,9 @@ def cleanup_all_data(dry_run=False, keep_days=0, data_type=None):
         'features': 'features_*.csv',
         'channels': 'channels_*.csv',
         'metrics': 'metrics_*.csv',
-        'predictions': 'predictions_*.csv'
+        'predictions': 'predictions_*.csv',
+        'model': 'model_*.pkl',
+        'scaler': 'scaler_*.pkl'
     }
     
     # Calculate cutoff date if keep_days is specified
@@ -132,6 +136,19 @@ def cleanup_all_data(dry_run=False, keep_days=0, data_type=None):
         total_deleted += cleanup_data_directory(
             directories['predictions'], patterns['predictions'], dry_run, keep_days
         )
+        
+    if data_type is None or data_type in ['model', 'scaler']:
+        # For models directory
+        if data_type is None:
+            # Delete all PKL files in models
+            total_deleted += cleanup_data_directory(
+                directories['models'], '*.pkl', dry_run, keep_days
+            )
+        else:
+            # Delete specific model file type
+            total_deleted += cleanup_data_directory(
+                directories['models'], patterns[data_type], dry_run, keep_days
+            )
     
     # Print summary
     if dry_run:
@@ -143,8 +160,8 @@ def main():
     parser = argparse.ArgumentParser(description="Clean up data files in LightningLens data directories")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be deleted without actually deleting")
     parser.add_argument("--keep-days", type=int, default=0, help="Keep files newer than specified days (default: delete all)")
-    parser.add_argument("--type", choices=["transactions", "features", "channels", "metrics", "predictions"], 
-                        help="Specific file type to delete (default: all CSV files)")
+    parser.add_argument("--type", choices=["transactions", "features", "channels", "metrics", "predictions", "model", "scaler"], 
+                        help="Specific file type to delete (default: all data files)")
     
     args = parser.parse_args()
     

@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.models.trainer import ModelTrainer
 from src.models.features import FeatureProcessor
 from src.utils.config import load_config
+from src.models.online_learner import OnlineLearner
 
 # Configure logging
 logging.basicConfig(
@@ -64,9 +65,13 @@ def load_latest_model():
 
 model, scaler = load_latest_model()
 
+# Add this after initializing the Flask app
+online_learner = OnlineLearner()
+logger.info("Initialized online learning module")
+
 @app.route('/api/update', methods=['POST'])
 def update():
-    global channel_data, transaction_history
+    global channel_data, transaction_history, online_learner
     
     data = request.json
     event_type = data.get('event_type')
@@ -74,25 +79,42 @@ def update():
     logger.info(f"Received {event_type} update")
     
     if event_type == 'transaction':
-        # Store transaction data
-        transaction = data.get('transaction', {})
-        transaction_history.append({
-            'timestamp': data.get('timestamp'),
-            'sender': transaction.get('sender'),
-            'receiver': transaction.get('receiver'),
-            'amount': transaction.get('amount'),
-            'success': transaction.get('success')
-        })
+        # Process transaction data
+        transaction = {
+            'timestamp': datetime.now(),
+            'sender': data.get('sender'),
+            'receiver': data.get('receiver'),
+            'amount': data.get('amount'),
+            'success': data.get('success', False)
+        }
+        transaction_history.append(transaction)
         
-        # Update channel data
-        new_channels = data.get('channels', {})
-        channel_data.update(new_channels)
+        # Add to online learner
+        online_learner.add_transaction(transaction)
         
-        # Generate new suggestions if we have a model
-        if model is not None and len(channel_data) > 0:
-            generate_suggestions()
+    elif event_type == 'channel_state':
+        # Process channel state data
+        channel_id = data.get('channel_id')
+        channel_data[channel_id] = {
+            'node': data.get('node'),
+            'remote_pubkey': data.get('remote_pubkey'),
+            'capacity': data.get('capacity'),
+            'local_balance': data.get('local_balance'),
+            'remote_balance': data.get('remote_balance'),
+            'timestamp': datetime.now()
+        }
+        
+        # Add to online learner
+        online_learner.add_channel_state(channel_data[channel_id])
     
-    return jsonify({"status": "success"})
+    # Generate suggestions using the online model
+    try:
+        suggestions = generate_suggestions(use_online_model=True)
+    except Exception as e:
+        logger.error(f"Error generating suggestions: {str(e)}")
+        suggestions = []
+    
+    return jsonify({"status": "success", "suggestions": suggestions})
 
 @app.route('/api/get_suggestions', methods=['GET'])
 def get_suggestions():
@@ -104,126 +126,83 @@ def get_suggestions():
     # Return current suggestions
     return jsonify(rebalance_suggestions)
 
-def generate_suggestions():
-    """Generate rebalancing suggestions based on current channel data"""
-    global rebalance_suggestions, channel_data, model, scaler
-    
-    if not model or not scaler:
-        logger.warning("Cannot generate suggestions: No model loaded")
-        return
-    
-    try:
-        # Convert channel data to features
-        features = prepare_features()
-        
-        if features is None or features.empty:
-            logger.warning("No valid features to generate suggestions")
-            return
-        
-        # Make predictions
-        predictions = trainer.predict(model, features)
-        
-        # Create suggestions based on predictions
-        suggestions = []
-        for i, row in features.iterrows():
-            channel_id = row['channel_id']
-            current_ratio = row['balance_ratio']
-            optimal_ratio = predictions[i]
-            
-            # Calculate adjustment needed
-            adjustment = optimal_ratio - current_ratio
-            
-            # Only suggest significant adjustments
-            if abs(adjustment) > 0.1:  # 10% threshold
-                # Find node names from channel_id
-                for node, channels in channel_data.items():
-                    for channel in channels:
-                        # This is a simplified matching - you may need to adjust based on your data structure
-                        if str(channel_id) in str(channel):
-                            # Determine direction based on adjustment
-                            if adjustment > 0:
-                                # Need to increase local balance
-                                from_node = node
-                                to_node = "peer"  # You'll need to determine the actual peer
-                            else:
-                                # Need to decrease local balance
-                                from_node = "peer"  # You'll need to determine the actual peer
-                                to_node = node
-                            
-                            # Calculate amount in sats (example)
-                            capacity = channel.get('capacity', 1000000)
-                            amount = int(abs(adjustment) * capacity)
-                            
-                            suggestions.append({
-                                'from_node': from_node,
-                                'to_node': to_node,
-                                'amount': amount,
-                                'channel_id': channel_id,
-                                'current_ratio': current_ratio,
-                                'optimal_ratio': optimal_ratio,
-                                'adjustment': adjustment
-                            })
-        
-        # Update global suggestions
-        rebalance_suggestions = suggestions
-        logger.info(f"Generated {len(suggestions)} rebalancing suggestions")
-        
-    except Exception as e:
-        logger.error(f"Error generating suggestions: {e}")
-
-def prepare_features():
-    """Prepare features from channel data for prediction"""
-    global channel_data
+def generate_suggestions(use_online_model=False):
+    global model, scaler, channel_data, online_learner
     
     if not channel_data:
-        return None
+        return []
     
     try:
-        rows = []
-        timestamp = datetime.now()
-        
-        # Process each node's channels
-        for node, channels in channel_data.items():
-            for channel in channels:
-                try:
-                    # Extract channel data and convert to appropriate types
-                    capacity = int(channel.get('capacity', 0))
-                    local_balance = int(channel.get('local_balance', 0))
-                    remote_balance = int(channel.get('remote_balance', 0))
-                    
-                    # Skip invalid channels
-                    if capacity <= 0:
-                        continue
-                    
-                    # Calculate balance ratio
-                    balance_ratio = local_balance / capacity if capacity > 0 else 0
-                    
-                    # Create a row for this channel
-                    rows.append({
-                        'timestamp': timestamp,
-                        'channel_id': str(channel.get('remote_pubkey', 'unknown')),
-                        'capacity': capacity,
-                        'local_balance': local_balance,
-                        'remote_balance': remote_balance,
-                        'balance_ratio': balance_ratio
-                    })
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Skipping channel due to data error: {e}")
-                    logger.debug(f"Problem channel data: {channel}")
-        
-        if not rows:
-            return None
-        
-        # Create DataFrame
-        df = pd.DataFrame(rows)
+        # Prepare channel data for feature extraction
+        channels_df = pd.DataFrame([
+            {
+                'timestamp': data['timestamp'],
+                'channel_id': channel_id,
+                'capacity': data['capacity'],
+                'local_balance': data['local_balance'],
+                'remote_balance': data['remote_balance'],
+                'remote_pubkey': data['remote_pubkey'],
+                'balance_ratio': data['local_balance'] / data['capacity'] if data['capacity'] > 0 else 0
+            }
+            for channel_id, data in channel_data.items()
+        ])
         
         # Process features
-        features_df = feature_processor.process_features(df)
-        return features_df
-    
+        feature_processor = FeatureProcessor()
+        features_df = feature_processor.process_features(channels_df)
+        
+        if features_df.empty:
+            logger.warning("No valid features to generate suggestions")
+            return []
+        
+        # Make predictions
+        if use_online_model and online_learner.is_fitted:
+            # Use online model
+            predictions = online_learner.predict(features_df)
+            logger.info("Generated suggestions using online model")
+        elif model is not None and scaler is not None:
+            # Use batch-trained model
+            X = features_df.drop(['channel_id', 'timestamp'], axis=1)
+            X_scaled = scaler.transform(X)
+            predictions = model.predict(X_scaled)
+            logger.info("Generated suggestions using batch model")
+        else:
+            logger.warning("No model available for predictions")
+            return []
+        
+        # Calculate adjustments needed
+        features_df['predicted_optimal_ratio'] = predictions
+        features_df['adjustment_needed'] = features_df['predicted_optimal_ratio'] - features_df['balance_ratio']
+        
+        # Sort by absolute adjustment needed
+        features_df['abs_adjustment'] = features_df['adjustment_needed'].abs()
+        features_df = features_df.sort_values('abs_adjustment', ascending=False)
+        
+        # Generate suggestions
+        suggestions = []
+        for _, row in features_df.iterrows():
+            channel_id = row['channel_id']
+            current = row['balance_ratio']
+            optimal = row['predicted_optimal_ratio']
+            adjustment = row['adjustment_needed']
+            
+            # Only suggest significant adjustments
+            if abs(adjustment) > 0.1:
+                direction = "increase" if adjustment > 0 else "decrease"
+                suggestions.append({
+                    'channel_id': channel_id,
+                    'current_ratio': float(current),
+                    'optimal_ratio': float(optimal),
+                    'adjustment': float(adjustment),
+                    'direction': direction,
+                    'priority': 'high' if abs(adjustment) > 0.3 else 'medium'
+                })
+        
+        return suggestions[:5]  # Return top 5 suggestions
+        
     except Exception as e:
-        logger.error(f"Error preparing features: {e}")
-        return None
+        logger.error(f"Error preparing features: {str(e)}")
+        return []
 
 # Add these new functions for continuous learning
 

@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from src.models.trainer import ModelTrainer
 from src.models.features import FeatureProcessor
 from src.utils.config import load_config
+from src.models.online_learner import OnlineLearner
 
 # Configure logging
 logging.basicConfig(
@@ -75,6 +76,10 @@ class LightningLensClient:
                 logger.error(f"Error loading model: {e}")
         else:
             logger.warning("No model available. Using default balance targets.")
+        
+        # Add online learner
+        self.online_learner = OnlineLearner(model_path=model_path)
+        logger.info("Initialized online learning module")
     
     async def connect(self):
         """Connect to the WebSocket server and process messages"""
@@ -94,8 +99,7 @@ class LightningLensClient:
                 # Process incoming messages
                 async for message in websocket:
                     try:
-                        data = json.loads(message)
-                        await self.process_message(data, websocket)
+                        await self.process_message(message)
                     except json.JSONDecodeError:
                         logger.error(f"Invalid JSON received: {message}")
                     except Exception as e:
@@ -108,12 +112,13 @@ class LightningLensClient:
             await asyncio.sleep(5)
             await self.connect()
     
-    async def process_message(self, data, websocket):
+    async def process_message(self, message):
         """Process incoming WebSocket messages"""
-        message_type = data.get("event_type")
+        data = json.loads(message)
+        event_type = data.get('event_type')
         
-        if message_type == "transaction":
-            # Process transaction data
+        if event_type == 'transaction':
+            # Process transaction
             logger.info(f"Received transaction: {data['transaction']['sender']} -> {data['transaction']['receiver']}")
             
             # Update channel data
@@ -132,26 +137,32 @@ class LightningLensClient:
             if len(self.transaction_history) > 100:
                 self.transaction_history = self.transaction_history[-100:]
             
-            # Generate suggestions after processing data
-            suggestions = self.generate_suggestions()
-            if suggestions:
-                await self.send_suggestions(websocket, suggestions)
+            # Add to online learner
+            model_updated = self.online_learner.add_transaction(data)
+            if model_updated:
+                logger.info("Online model updated with new transaction data")
+            
+            # Generate suggestions using online model if available
+            if self.online_learner.is_fitted:
+                # Use online model for recommendations
+                # Implementation depends on your existing code
+                pass
         
-        elif message_type == "snapshot":
-            # Process channel snapshot
+        elif event_type == 'channel_state':
+            # Process channel state
             logger.info("Received channel snapshot")
             self.update_channel_data(data.get("channels", {}))
             
-            # Generate suggestions based on snapshot
-            suggestions = self.generate_suggestions()
-            if suggestions:
-                await self.send_suggestions(websocket, suggestions)
+            # Add to online learner
+            model_updated = self.online_learner.add_channel_state(data)
+            if model_updated:
+                logger.info("Online model updated with new channel state data")
         
-        elif message_type == "request_suggestions":
+        elif event_type == "request_suggestions":
             # Explicit request for suggestions
             logger.info("Received request for suggestions")
             suggestions = self.generate_suggestions()
-            await self.send_suggestions(websocket, suggestions)
+            await self.send_suggestions(suggestions)
     
     def update_channel_data(self, channels):
         """Update stored channel data with new information"""
@@ -300,7 +311,7 @@ class LightningLensClient:
             logger.error(f"Error processing features: {e}")
             return None
     
-    async def send_suggestions(self, websocket, suggestions):
+    async def send_suggestions(self, suggestions):
         """Send rebalancing suggestions back to the server"""
         if not suggestions:
             return
@@ -315,7 +326,7 @@ class LightningLensClient:
                 "suggestions": suggestions
             }
             
-            await websocket.send(json.dumps(message))
+            await self.websocket.send(json.dumps(message))
             logger.info("Suggestions sent successfully")
         except Exception as e:
             logger.error(f"Error sending suggestions: {e}")
