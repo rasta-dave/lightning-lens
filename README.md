@@ -1,14 +1,179 @@
 # Lightning Lens 🔍⚡
 
-An AI-powered tool for optimizing Lightning Network node liquidity through advanced prediction and analysis.
+An AI-powered tool for optimizing Lightning Network node liquidity through machine learning prediction and analysis.
 
 ## Overview
 
 LightningLens uses machine learning to help Lightning Network node operators optimize their channel liquidity. It analyzes network patterns, predicts optimal liquidity levels, and provides actionable recommendations for channel management.
 
-## LightningLens and Simulation Interaction Schema
+## Initial Setup
 
-Here's a visual schema showing how the LightningLens ML model interacts with the Lightning Network simulation:
+Follow these steps when setting up LightningLens for the first time:
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Create Necessary Directories
+
+```bash
+mkdir -p data/{raw,processed,models} visualizations
+```
+
+### 3. Fix the Feature Generation Script
+
+This one-time fix ensures the feature generation script works correctly:
+
+```bash
+python scripts/final_fix.py
+```
+
+## Complete Workflow (First-Time Setup)
+
+### Phase 1: Data Collection and Simulation
+
+To collect data and run the simulation, you need to start multiple components:
+
+```bash
+
+# Inside of the LightningLens directory:
+
+# Terminal 1: Start the HTTP server (receives data and serves predictions)
+python src/scripts/http_server.py
+
+# Terminal 2: Start the WebSocket client (connects to simulation)
+python src/scripts/websocket_client.py
+
+# Terminal 3: Start the adapter proxy (transforms data between systems)
+python src/scripts/adapter_proxy.py
+
+# =======================================
+
+# Inside of the Lightning Network Simulation directory:
+
+# Terminal 1: Start the WebSocket server (simulation side)
+python scripts/websocket_server.py
+
+# Terminal 2: Start the simulation
+python scripts/simulation.py
+```
+
+Let the simulation run for at least 10 minutes to collect sufficient data. The components work together:
+
+1. The **simulation** generates Lightning Network transactions and channel states
+2. The **WebSocket server** broadcasts this data
+3. The **WebSocket client** receives the data from the simulation
+4. The **adapter proxy** transforms the data into the format needed by the model
+5. The **HTTP server** stores the data and will later serve predictions
+
+### Phase 2: Data Processing Pipeline
+
+After collecting data, process it to train your model:
+
+#### Step 1: Convert Raw Data to CSV
+
+```bash
+python scripts/convert_raw_data.py
+```
+
+This processes the JSON data collected during simulation and creates:
+
+- `data/processed/transactions_YYYYMMDD_HHMMSS.csv`
+- `data/processed/channel_states_YYYYMMDD_HHMMSS.csv`
+
+#### Step 2: Transform Transaction Data
+
+```bash
+python scripts/transform_transactions.py --input data/processed/transactions_YYYYMMDD_HHMMSS.csv
+```
+
+This adds required fields to the transaction data and creates:
+
+- `data/processed/transformed_transactions_YYYYMMDD_HHMMSS.csv`
+
+#### Step 3: Generate Features
+
+```bash
+python scripts/generate_features.py --input data/processed/transformed_transactions_YYYYMMDD_HHMMSS.csv
+```
+
+This analyzes the transaction patterns and creates:
+
+- `data/processed/features_YYYYMMDD_HHMMSS.csv`
+
+#### Step 4: Train the Initial Model
+
+```bash
+python -m scripts.train_initial_model
+```
+
+This trains a machine learning model on the features and creates:
+
+- `data/models/model_initial_YYYYMMDD_HHMMSS.pkl`
+- `data/models/scaler_initial_YYYYMMDD_HHMMSS.pkl`
+
+## Daily Usage (After Initial Setup)
+
+If you've already completed the initial setup and have a trained model, follow these steps to start LightningLens for your daily usage:
+
+### 1. Start the System with Your Trained Model
+
+```bash
+# Terminal 1: Start the HTTP server with your trained model
+python -m src.scripts.http_server --model data/models/model_initial_YYYYMMDD_HHMMSS.pkl
+
+# Terminal 2: Start the WebSocket client
+python src/scripts/websocket_client.py
+
+# Terminal 3: Start the adapter proxy
+python src/scripts/adapter_proxy.py
+
+# Terminal 4: Start the WebSocket server
+python scripts/websocket_server.py
+
+# Terminal 5: Start the simulation
+python scripts/simulation.py
+```
+
+### 2. Monitor and Analyze
+
+- Check the HTTP server logs for predictions and recommendations
+- Monitor the simulation for improved channel liquidity
+- Visualizations will be generated in the `visualizations/` directory
+
+### 3. Periodic Retraining (Optional)
+
+To improve your model with new data collected during operation:
+
+```bash
+# Convert any new raw data
+python scripts/convert_raw_data.py
+
+# Transform new transaction data
+python scripts/transform_transactions.py --input data/processed/transactions_YYYYMMDD_HHMMSS.csv
+
+# Generate features from transformed data
+python scripts/generate_features.py --input data/processed/transformed_transactions_YYYYMMDD_HHMMSS.csv
+
+# Train a new model
+python -m scripts.train_initial_model
+```
+
+### 4. Shutting Down
+
+To properly shut down the system:
+
+1. Stop the simulation (Ctrl+C in Terminal 5)
+2. Stop the WebSocket server (Ctrl+C in Terminal 4)
+3. Stop the adapter proxy (Ctrl+C in Terminal 3)
+4. Stop the WebSocket client (Ctrl+C in Terminal 2)
+5. Stop the HTTP server (Ctrl+C in Terminal 1)
+
+## System Architecture
+
+LightningLens and the Lightning Network simulation interact as follows:
 
 ```
 ┌───────────────────────────────────────────────┐      ┌─────────────────────────────────────────┐
@@ -52,7 +217,15 @@ Here's a visual schema showing how the LightningLens ML model interacts with the
                                                                               └──────────────────┘
 ```
 
-## Data Flow:
+### Component Roles
+
+1. **WebSocket Server**: Broadcasts simulation data (transactions, channel states)
+2. **WebSocket Client**: Receives data from the simulation
+3. **Adapter Proxy**: Transforms data between simulation and model formats
+4. **HTTP Server**: Hosts the model and serves predictions
+5. **Simulation**: Generates realistic Lightning Network behavior
+
+### Data Flow
 
 1. **Simulation to Model:**
 
@@ -60,318 +233,119 @@ Here's a visual schema showing how the LightningLens ML model interacts with the
    - Transaction data (sender, receiver, amount, success)
    - Network topology information
 
-2. **Feature Adapter:**
-
-   - Transforms raw channel state data into the format expected by the model
-   - Adds required fields like `channel_id` and `balance_ratio`
-   - Ensures feature names match those used during model training
-   - Sends properly formatted data to the HTTP API
-
-3. **Model to Simulation:**
+2. **Model to Simulation:**
    - Rebalancing suggestions (source node, target node, amount)
    - Confidence scores for each suggestion
    - Optimal balance ratios for each channel
 
-## Communication Mechanism:
+## Improving Your Model
 
-- **WebSocket Protocol:** Real-time bidirectional communication
-- **HTTP API:** Alternative communication channel for updates
-- **JSON Format:** Structured data exchange between systems
-- **Feature Adapter:** Ensures data compatibility between systems
+### Collect More Data
 
-## Learning Cycle:
+The more data you have, the better your model will perform:
 
-1. Simulation generates realistic payment patterns
-2. Feature adapter transforms raw data into model-compatible format
-3. Model observes channel states and transaction outcomes
-4. Model learns optimal balance distributions
-5. Model suggests rebalancing actions
-6. Simulation applies high-confidence suggestions
-7. Channel performance improves
-8. Model continues learning from new data
+1. Run your simulation longer
+2. Process more HTTP data files
+3. Retrain your model with the larger dataset
 
-This creates a continuous feedback loop where the model improves the simulation's performance, and the simulation provides more data for the model to learn from.
+### Benefits of More Data
 
-## Features
+- **Better pattern recognition**: More transactions reveal more patterns
+- **More diverse scenarios**: Different network conditions and transaction patterns
+- **Higher accuracy**: More training examples lead to better predictions
+- **Better generalization**: Less overfitting to specific patterns
 
-- 📊 Network Analysis: Collect and analyze Lightning Network data
-- 🤖 AI Predictions: Use machine learning to predict optimal liquidity levels
-- 💡 Smart Recommendations: Get actionable insights for channel management
-- 📈 Visualization: View network statistics and predictions through intuitive visualizations
-- 🔄 Real-time Monitoring: Connect to Lightning Network simulations via WebSocket
+### Retraining with New Data
 
-## Quick Start
-
-1. Install dependencies:
+When you have new data:
 
 ```bash
-pip install -r requirements.txt
+# Example workflow with new data
+python scripts/convert_raw_data.py
+python scripts/transform_transactions.py --input data/processed/transactions_YYYYMMDD_HHMMSS.csv
+python scripts/generate_features.py --input data/processed/transformed_transactions_YYYYMMDD_HHMMSS.csv
+python -m scripts.train_initial_model
 ```
-
-2. Generate sample data (if needed):
-
-```bash
-python -m scripts.generate_sample_data
-```
-
-3. Train the model:
-
-```bash
-python -m src.scripts.lightning_lens train --data data/processed/features.csv
-```
-
-4. Analyze channels and get recommendations:
-
-```bash
-python -m src.scripts.lightning_lens analyze --data data/processed/features_new.csv
-```
-
-## Real-time Integration with Lightning Network
-
-LightningLens provides two methods for real-time integration with Lightning Network nodes or simulations:
-
-### WebSocket Client
-
-The WebSocket client connects to a Lightning Network simulation or monitoring service that broadcasts channel updates and transactions via WebSocket. This enables real-time analysis and recommendations.
-
-```bash
-python -m src.scripts.websocket_client
-```
-
-### HTTP Server
-
-The HTTP server provides an API endpoint that can receive updates from Lightning Network nodes or simulations. It processes the data, generates recommendations, and makes them available via API.
-
-```bash
-python -m src.scripts.http_server
-```
-
-## Data Management
-
-LightningLens collects and processes significant amounts of data during operation. To help manage this data, a cleanup utility is provided:
-
-### Data Cleanup
-
-The cleanup script helps manage the CSV files that accumulate in the data directories:
-
-```bash
-# Show what would be deleted without actually deleting anything
-python -m scripts.cleanup_data --dry-run
-
-# Delete all CSV files across all data directories
-python -m scripts.cleanup_data
-
-# Delete only transaction files
-python -m scripts.cleanup_data --type transactions
-
-# Keep the last 7 days of data
-python -m scripts.cleanup_data --keep-days 7
-```
-
-#### Why Use the Cleanup Script
-
-- **Prevent Disk Space Issues**: Over time, the continuous data collection can fill your disk space
-- **Improve Performance**: Large amounts of data can slow down model training and analysis
-- **Focus on Recent Data**: For most analyses, recent data is more relevant than historical data
-- **Maintain Privacy**: Regular cleanup helps maintain privacy by removing old transaction data
-
-#### Available Options
-
-- `--dry-run`: Preview what would be deleted without actually deleting files
-- `--keep-days N`: Keep files newer than N days
-- `--type TYPE`: Only delete specific file types:
-  - `transactions`: Transaction history files
-  - `features`: Processed feature files
-  - `channels`: Channel state files
-  - `metrics`: Raw metrics files
-  - `predictions`: Model prediction files
 
 ## Continuous Learning
 
-LightningLens is designed to continuously improve its recommendations by learning from new data. The HTTP server automatically:
+LightningLens continuously improves by learning from new data. The HTTP server automatically:
 
 1. Saves transaction and channel data every 5 minutes
 2. Retrains the model every 30 minutes using the latest data
 3. Updates recommendations based on the newly trained model
 
-This ensures that recommendations adapt to changing network conditions and become more accurate over time.
+## Troubleshooting
 
-## Visualization
+### Missing Fields in Transaction Data
 
-After analysis, you'll find:
+If you get a `KeyError` for fields like 'sender' or 'receiver':
 
-- `visualizations/balance_distribution.png`: Current balance distribution
-- `visualizations/optimal_vs_current.png`: Comparison plot
-- `visualizations/rebalance_recommendations.png`: Top channels needing rebalancing
-- `visualizations/feature_importance.png`: Feature importance analysis
-- `visualizations/rebalance_report.md`: Detailed recommendations report
+```bash
+python scripts/transform_transactions.py --input data/processed/transactions_YYYYMMDD_HHMMSS.csv
+```
+
+### Input Parameter Not Recognized
+
+If the script ignores your input parameter:
+
+```bash
+python scripts/final_fix.py
+```
+
+### Checking Transaction Data Format
+
+To validate your transaction data:
+
+```bash
+python scripts/check_transaction_fields.py --input your_file.csv
+```
+
+### WebSocket Connection Issues
+
+If the WebSocket client can't connect to the server:
+
+1. Ensure the WebSocket server is running
+2. Check that the port numbers match (default: 8765)
+3. Verify there are no firewall issues blocking the connection
+
+### Adapter Proxy Problems
+
+If data isn't being properly transformed:
+
+1. Check the adapter logs for errors
+2. Verify the data format from the simulation
+3. Ensure the adapter is configured to match both systems
 
 ## Advanced Usage
 
-### Custom Model Path
-
-Use a specific model for the WebSocket client:
+### Custom Feature Generation
 
 ```bash
-python -m src.scripts.websocket_client --model data/models/model_TIMESTAMP.pkl
+python scripts/new_generate_features.py --input your_transactions.csv --output your_features.csv
 ```
 
-### Verbose Logging
-
-Enable detailed logging for troubleshooting:
+### Using Multiple Models
 
 ```bash
-python -m src.scripts.websocket_client --verbose
+# Start server with a specific model
+python -m src.scripts.http_server --model data/models/your_model.pkl --port 5001
 ```
 
-### Monitoring Logs
+### Visualization
 
-Monitor the activity of both services:
+After analysis, you'll find visualization files in the `visualizations/` directory:
 
-```bash
-tail -f lightning_lens_http.log
-tail -f lightning_lens_ws.log
-```
+- Balance distribution charts
+- Optimal vs. current balance comparisons
+- Rebalancing recommendations
+- Feature importance analysis
+- Detailed recommendation reports
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Real-time Learning
-
-LightningLens supports real-time learning from Lightning Network data:
-
-### Online Learning
-
-The system can learn continuously from transaction data as it arrives:
-
-```bash
-# Start HTTP server with online learning enabled
-python -m src.scripts.http_server
-
-# Start WebSocket client with online learning
-python -m src.scripts.websocket_client
-```
-
-### Hybrid Learning Approach
-
-LightningLens uses a hybrid approach that combines:
-
-1. **Online Learning**: Continuously updates the model as new data arrives
-2. **Batch Learning**: Periodically retrains the model using accumulated data
-
-This provides both immediate adaptation to network changes and long-term stability.
-
-### Training an Initial Model
-
-For best results, train an initial model before starting online learning:
-
-```bash
-# Train initial model from existing data
-python -m scripts.train_initial_model
-
-# Use a specific features file
-python -m scripts.train_initial_model --features data/processed/features_20250304_180000.csv
-```
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License
-
-////////////////////////////////////////
-
-## Running the Complete System
-
-1. **Generate Initial Transaction Data**
-
-   ```bash
-   # Run the simulation for a short period (about 10 minutes) to generate transaction data
-   ```
-
-   This will create a transaction data file like `lightning_simulation_TIMESTAMP.csv` that will end up in the /data/processed directory.
-
-2. **Generate Features from Transaction Data**
-
-   ```bash
-   # Generate features from the initial transaction data
-   python scripts/generate_features.py \
-     --input data/processed/transactions_initial.csv \
-     --output data/processed/features_new.csv
-   ```
-
-   Replace the `transactions_initial.csv` name with the newly generated transaction data file.
-
-   This will create a features file that can be used for model training.
-
-3. **Train an Initial Model**
-
-   ```bash
-   # Train the model using:
-   python -m scripts.train_initial_model
-   ```
-
-   This will save the model to the /data/models directory in the form of two .pkl files:
-
-   ```bash
-   # For example:
-   model_initial_20250305_144628.pkl
-   and
-   scaler_initial_20250305_144628.pkl
-   ```
-
-   These are the two necessary files to move on to the next step.
-
-4. **Start the HTTP Server with the Model**
-
-   ```bash
-   # Start the HTTP server with your trained model
-   python -m src.scripts.http_server --model data/models/YOUR_MODEL_FILENAME.pkl
-   ```
-
-5. **Start the WebSocket Client**
-
-   ```bash
-   # Start the WebSocket client with the same model
-   python -m src.scripts.websocket_client \
-     --uri ws://localhost:6789 \
-     --model data/models/YOUR_MODEL_FILENAME.pkl \
-     --verbose
-   ```
-
-6. **Start the Simulation with Feature Adapter**
-
-   ```bash
-   # Run the simulation with the feature adapter
-   python path/to/simulation.py
-   ```
-
-7. **Monitor the System**
-
-   ```bash
-   # In a new terminal window
-   tail -f lightning_lens_http.log
-
-   # In another terminal window
-   tail -f lightning_lens_ws.log
-   ```
-
-This complete workflow ensures that:
-
-1. You generate initial transaction data from the simulation
-2. You generate proper features from your transaction data
-3. You train a model on those features
-4. Both the HTTP server and WebSocket client use the same trained model
-5. The feature adapter in the simulation ensures data compatibility
-6. You can monitor the system's operation in real-time
-
-### First-Time Setup vs. Ongoing Operation
-
-The steps above describe the complete first-time setup. For ongoing operation:
-
-- Steps 1-4 only need to be done once to create the initial model
-- Steps 5-8 are run each time you want to use the system
-- The model will continue to learn and improve as more data is collected
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -10,7 +10,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import glob
-import argparse
 
 def find_latest_file(pattern):
     """Find the latest file matching the pattern"""
@@ -19,14 +18,7 @@ def find_latest_file(pattern):
         return None
     return max(files, key=os.path.getctime)
 
-
-def parse_args():
-    parser = argparse.ArgumentParser(description='Generate features from transaction data')
-    parser.add_argument('--input', type=str, required=True, help='Input transaction CSV file')
-    parser.add_argument('--output', type=str, help='Output features CSV file')
-    return parser.parse_args()
-
-def generate_features(args):
+def generate_features(args, ):
     """Generate features from transaction and channel data"""
     # Find the latest transaction file
     transactions_file = find_latest_file("data/processed/transactions_*.csv")
@@ -126,10 +118,7 @@ if __name__ == "__main__":
     print("LightningLens Feature Generator")
     print("===============================")
     
-    # Parse command line arguments
-    args = parse_args()
-    
-    if generate_features(args):
+    if generate_features(args, ):
         print("\nFeatures generated successfully. You can now train the initial model:")
         print("python -m scripts.train_initial_model")
     else:

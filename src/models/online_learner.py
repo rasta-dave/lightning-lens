@@ -223,4 +223,44 @@ class OnlineLearner:
             
         except Exception as e:
             logger.error(f"Error making predictions: {str(e)}")
-            return np.full(len(features_df), 0.5) 
+            return np.full(len(features_df), 0.5)
+
+    def prepare_features(self, data):
+        """
+        Prepare features from raw data for model prediction
+        
+        Args:
+            data: Dictionary containing channel state or transaction data
+            
+        Returns:
+            List of feature values in the correct order for the model
+        """
+        try:
+            # Extract relevant features
+            features = {
+                'capacity': data.get('capacity', 0),
+                'local_balance': data.get('local_balance', 0),
+                'remote_balance': data.get('remote_balance', 0),
+                'balance_ratio': data.get('balance_ratio', 0.0),
+                'tx_count': data.get('tx_count', 0),
+                'success_rate': data.get('success_rate', 1.0),
+                'avg_amount': data.get('avg_amount', 0)
+            }
+            
+            # Convert to the format expected by the model
+            # This depends on how your model was trained
+            # You might need to adjust this based on your model's expected input
+            feature_list = [
+                features['capacity'],
+                features['local_balance'],
+                features['remote_balance'],
+                features['balance_ratio'],
+                features['tx_count'],
+                features['success_rate'],
+                features['avg_amount']
+            ]
+            
+            return feature_list
+            
+        except Exception as e:
+            raise ValueError(f"Error preparing features: {str(e)}") 
