@@ -1,6 +1,6 @@
 # Lightning Lens 🔍⚡
 
-An AI-powered tool for optimizing Lightning Network node liquidity through machine learning prediction and analysis.
+A minimalistic AI-powered tool for optimizing Lightning Network node liquidity through machine learning prediction and analysis.
 
 ## Overview
 
@@ -121,19 +121,25 @@ If you've already completed the initial setup and have a trained model, follow t
 ### 1. Start the System with Your Trained Model
 
 ```bash
-# Terminal 1: Start the HTTP server with your trained model
-python -m src.scripts.http_server --model data/models/model_initial_YYYYMMDD_HHMMSS.pkl
+# Inside of the LightningLens directory:
 
-# Terminal 2: Start the WebSocket client
+# Terminal 1: Start the HTTP server (receives data and serves predictions)
+python src/scripts/http_server.py
+
+# Terminal 2: Start the WebSocket client (connects to simulation)
 python src/scripts/websocket_client.py
 
-# Terminal 3: Start the adapter proxy
+# Terminal 3: Start the adapter proxy (transforms data between systems)
 python src/scripts/adapter_proxy.py
 
-# Terminal 4: Start the WebSocket server
+# =======================================
+
+# Inside of the Lightning Network Simulation directory:
+
+# Terminal 1: Start the WebSocket server (simulation side)
 python scripts/websocket_server.py
 
-# Terminal 5: Start the simulation
+# Terminal 2: Start the simulation
 python scripts/simulation.py
 ```
 
@@ -165,11 +171,11 @@ python -m scripts.train_initial_model
 
 To properly shut down the system:
 
-1. Stop the simulation (Ctrl+C in Terminal 5)
-2. Stop the WebSocket server (Ctrl+C in Terminal 4)
-3. Stop the adapter proxy (Ctrl+C in Terminal 3)
-4. Stop the WebSocket client (Ctrl+C in Terminal 2)
-5. Stop the HTTP server (Ctrl+C in Terminal 1)
+1. Stop the simulation
+2. Stop the WebSocket server
+3. Stop the adapter proxy
+4. Stop the WebSocket client
+5. Stop the HTTP server
 
 ## System Architecture
 
@@ -348,4 +354,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License
