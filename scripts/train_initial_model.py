@@ -1,84 +1,87 @@
 #!/usr/bin/env python3
 """
-Train Initial Model for Online Learning
+Train initial model for LightningLens
 
-This script trains an initial model from existing CSV data files,
-which can then be used as a starting point for online learning.
+This script trains an initial model using historical data.
 """
 
 import os
-import argparse
 import pandas as pd
+import numpy as np
+import pickle
 from datetime import datetime
 import glob
-from src.models.trainer import ModelTrainer
-from src.models.features import FeatureProcessor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
 
-def find_latest_features_file():
-    """Find the most recent features CSV file"""
-    files = glob.glob("data/processed/features_*.csv")
+def find_latest_file(pattern):
+    """Find the latest file matching the pattern"""
+    files = glob.glob(pattern)
     if not files:
         return None
-    
-    # Sort by modification time (newest first)
-    files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-    return files[0]
+    return max(files, key=os.path.getctime)
 
-def train_initial_model(features_path=None):
-    """Train initial model from features CSV"""
-    # Find latest features file if not specified
-    if not features_path:
-        features_path = find_latest_features_file()
-        if not features_path:
-            print("No features files found. Please run data collection first.")
-            return False
+def train_initial_model():
+    """Train the initial model using the latest features file"""
+    # Find the latest features file
+    features_file = find_latest_file("data/processed/features_*.csv")
+    if not features_file:
+        print("No features files found. Please run data collection first.")
+        return False
     
-    print(f"Training initial model using: {features_path}")
+    print(f"Training initial model using: {features_file}")
     
     try:
         # Load features
-        features_df = pd.read_csv(features_path)
+        features_df = pd.read_csv(features_file)
         
-        if 'balance_ratio' not in features_df.columns:
-            print("Error: Features file does not contain 'balance_ratio' column")
-            return False
+        # Prepare data
+        X = features_df[['capacity', 'local_balance', 'remote_balance', 
+                         'balance_ratio', 'tx_count', 'success_rate', 'avg_amount']]
+        y = features_df['optimal_ratio']
+        
+        # Scale features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
         
         # Train model
-        trainer = ModelTrainer()
-        model, scaler = trainer.train_model(
-            features_df, 
-            target_column='balance_ratio'
-        )
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        model.fit(X_scaled, y)
         
-        # Save model
+        # Save model and scaler
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Create models directory if it doesn't exist
         os.makedirs("data/models", exist_ok=True)
         
+        # Save model
         model_path = f"data/models/model_initial_{timestamp}.pkl"
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
+        
+        # Save scaler
         scaler_path = f"data/models/scaler_initial_{timestamp}.pkl"
+        with open(scaler_path, 'wb') as f:
+            pickle.dump(scaler, f)
         
-        trainer.save_model(model, model_path)
-        trainer.save_model(scaler, scaler_path)
-        
-        print(f"Successfully trained and saved initial model to {model_path}")
-        print(f"This model can now be used as a starting point for online learning")
+        print(f"Model saved to: {model_path}")
+        print(f"Scaler saved to: {scaler_path}")
         
         return True
         
     except Exception as e:
         print(f"Error training initial model: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
-def main():
-    parser = argparse.ArgumentParser(description="Train initial model for online learning")
-    parser.add_argument("--features", help="Path to features CSV file (optional)")
-    
-    args = parser.parse_args()
-    
+if __name__ == "__main__":
     print("LightningLens Initial Model Training")
     print("====================================")
     
-    train_initial_model(args.features)
-
-if __name__ == "__main__":
-    main() 
+    if train_initial_model():
+        print("\nInitial model trained successfully.")
+        print("You can now run the HTTP server to start online learning:")
+        print("python -m src.scripts.http_server")
+    else:
+        print("\nFailed to train initial model.") 

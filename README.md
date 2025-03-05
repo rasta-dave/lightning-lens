@@ -6,6 +6,92 @@ An AI-powered tool for optimizing Lightning Network node liquidity through advan
 
 LightningLens uses machine learning to help Lightning Network node operators optimize their channel liquidity. It analyzes network patterns, predicts optimal liquidity levels, and provides actionable recommendations for channel management.
 
+## LightningLens and Simulation Interaction Schema
+
+Here's a visual schema showing how the LightningLens ML model interacts with the Lightning Network simulation:
+
+```
+┌───────────────────────────────────────────────┐      ┌─────────────────────────────────────────┐
+│                                               │      │                                         │
+│       Lightning Network Simulation            │      │           LightningLens Model           │
+│                                               │      │                                         │
+├───────────────────────────────────────────────┤      ├─────────────────────────────────────────┤
+│                                               │      │                                         │
+│  ┌─────────────┐       ┌─────────────┐        │      │  ┌─────────────┐       ┌─────────────┐  │
+│  │             │       │             │        │      │  │             │       │             │  │
+│  │  Lightning  │       │  WebSocket  │        │      │  │  WebSocket  │       │    Model    │  │
+│  │    Nodes    │◄─────►│   Server    │◄───────┼──────┼─►│   Client    │◄─────►│  Processor  │  │
+│  │             │       │             │        │      │  │             │       │             │  │
+│  └─────────────┘       └─────────────┘        │      │  └─────────────┘       └─────────────┘  │
+│         ▲                     ▲               │      │                               │         │
+│         │                     │               │      │                               │         │
+│         │                     │               │      │                               │         │
+│         ▼                     │               │      │                               ▼         │
+│  ┌─────────────┐       ┌─────────────┐        │      │  ┌─────────────┐       ┌─────────────┐  │
+│  │             │       │             │        │      │  │             │       │             │  │
+│  │ Transaction │       │ Rebalancing │◄───────┼──────┼──┤ Suggestions │◄──────┤   Online    │  │
+│  │  Generator  │──────►│   Engine    │        │      │  │  Generator  │       │   Learner   │  │
+│  │             │       │             │        │      │  │             │       │             │  │
+│  └─────────────┘       └─────────────┘        │      │  └─────────────┘       └─────────────┘  │
+│         │                                     │      │                               ▲         │
+│         ▼                                     │      │                               │         │
+│  ┌─────────────┐       ┌─────────────┐        │      │                               │         │
+│  │             │       │             │        │      │                               │         │
+│  │   Channel   │──────►│   Feature   │────────┼──────┼─►                             │         │
+│  │    State    │       │   Adapter   │        │      │                               │         │
+│  │             │       │             │        │      │                               │         │
+│  └─────────────┘       └─────────────┘        │      │                               │         │
+│                                               │      │                               │         │
+└───────────────────────────────────────────────┘      └───────────────────────────────┼─────────┘
+                                                                                       │
+                                                                              ┌────────┴─────────┐
+                                                                              │                  │
+                                                                              │  Trained Model   │
+                                                                              │    & Scaler      │
+                                                                              │                  │
+                                                                              └──────────────────┘
+```
+
+## Data Flow:
+
+1. **Simulation to Model:**
+
+   - Channel state updates (balances, capacities)
+   - Transaction data (sender, receiver, amount, success)
+   - Network topology information
+
+2. **Feature Adapter:**
+
+   - Transforms raw channel state data into the format expected by the model
+   - Adds required fields like `channel_id` and `balance_ratio`
+   - Ensures feature names match those used during model training
+   - Sends properly formatted data to the HTTP API
+
+3. **Model to Simulation:**
+   - Rebalancing suggestions (source node, target node, amount)
+   - Confidence scores for each suggestion
+   - Optimal balance ratios for each channel
+
+## Communication Mechanism:
+
+- **WebSocket Protocol:** Real-time bidirectional communication
+- **HTTP API:** Alternative communication channel for updates
+- **JSON Format:** Structured data exchange between systems
+- **Feature Adapter:** Ensures data compatibility between systems
+
+## Learning Cycle:
+
+1. Simulation generates realistic payment patterns
+2. Feature adapter transforms raw data into model-compatible format
+3. Model observes channel states and transaction outcomes
+4. Model learns optimal balance distributions
+5. Model suggests rebalancing actions
+6. Simulation applies high-confidence suggestions
+7. Channel performance improves
+8. Model continues learning from new data
+
+This creates a continuous feedback loop where the model improves the simulation's performance, and the simulation provides more data for the model to learn from.
+
 ## Features
 
 - 📊 Network Analysis: Collect and analyze Lightning Network data
@@ -195,3 +281,97 @@ python -m scripts.train_initial_model --features data/processed/features_2025030
 ## License
 
 This project is licensed under the MIT License
+
+////////////////////////////////////////
+
+## Running the Complete System
+
+1. **Generate Initial Transaction Data**
+
+   ```bash
+   # Run the simulation for a short period (about 10 minutes) to generate transaction data
+   ```
+
+   This will create a transaction data file like `lightning_simulation_TIMESTAMP.csv` that will end up in the /data/processed directory.
+
+2. **Generate Features from Transaction Data**
+
+   ```bash
+   # Generate features from the initial transaction data
+   python scripts/generate_features.py \
+     --input data/processed/transactions_initial.csv \
+     --output data/processed/features_new.csv
+   ```
+
+   Replace the `transactions_initial.csv` name with the newly generated transaction data file.
+
+   This will create a features file that can be used for model training.
+
+3. **Train an Initial Model**
+
+   ```bash
+   # Train the model using:
+   python -m scripts.train_initial_model
+   ```
+
+   This will save the model to the /data/models directory in the form of two .pkl files:
+
+   ```bash
+   # For example:
+   model_initial_20250305_144628.pkl
+   and
+   scaler_initial_20250305_144628.pkl
+   ```
+
+   These are the two necessary files to move on to the next step.
+
+4. **Start the HTTP Server with the Model**
+
+   ```bash
+   # Start the HTTP server with your trained model
+   python -m src.scripts.http_server --model data/models/YOUR_MODEL_FILENAME.pkl
+   ```
+
+5. **Start the WebSocket Client**
+
+   ```bash
+   # Start the WebSocket client with the same model
+   python -m src.scripts.websocket_client \
+     --uri ws://localhost:6789 \
+     --model data/models/YOUR_MODEL_FILENAME.pkl \
+     --verbose
+   ```
+
+6. **Start the Simulation with Feature Adapter**
+
+   ```bash
+   # Run the simulation with the feature adapter
+   python path/to/simulation.py
+   ```
+
+7. **Monitor the System**
+
+   ```bash
+   # In a new terminal window
+   tail -f lightning_lens_http.log
+
+   # In another terminal window
+   tail -f lightning_lens_ws.log
+   ```
+
+This complete workflow ensures that:
+
+1. You generate initial transaction data from the simulation
+2. You generate proper features from your transaction data
+3. You train a model on those features
+4. Both the HTTP server and WebSocket client use the same trained model
+5. The feature adapter in the simulation ensures data compatibility
+6. You can monitor the system's operation in real-time
+
+### First-Time Setup vs. Ongoing Operation
+
+The steps above describe the complete first-time setup. For ongoing operation:
+
+- Steps 1-4 only need to be done once to create the initial model
+- Steps 5-8 are run each time you want to use the system
+- The model will continue to learn and improve as more data is collected
