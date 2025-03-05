@@ -4,7 +4,7 @@ A minimalistic AI-powered tool for optimizing Lightning Network node liquidity t
 
 ## Overview
 
-LightningLens uses machine learning to help Lightning Network node operators optimize their channel liquidity. It analyzes network patterns, predicts optimal liquidity levels, and provides actionable recommendations for channel management.
+Lightning Lens is a prototype that uses machine learning to help optimize channel liquidity inside of a Lightning Network simulation. It analyzes network patterns, predicts optimal liquidity levels, and provides actionable recommendations for channel management.
 
 ## Initial Setup
 
