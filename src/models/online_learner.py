@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 import joblib
 from typing import List, Dict, Tuple, Optional, Any
+import time
 
 from src.models.features import FeatureProcessor
 
@@ -54,6 +55,8 @@ class OnlineLearner:
         self.transaction_count = 0
         self.feature_processor = FeatureProcessor()
         self.last_update_time = datetime.now()
+        self.learning_rate = 0.1  # Initial learning rate
+        self.performance_history = []
         
         # Load or create model and scaler
         if model_path and os.path.exists(model_path):
@@ -263,4 +266,87 @@ class OnlineLearner:
             return feature_list
             
         except Exception as e:
-            raise ValueError(f"Error preparing features: {str(e)}") 
+            raise ValueError(f"Error preparing features: {str(e)}")
+
+    def retrain(self):
+        """Retrain the model with new data"""
+        if len(self.buffer) < self.min_samples_for_update:
+            logger.info(f"Not enough samples for retraining. Have {len(self.buffer)}, need {self.min_samples_for_update}")
+            return False
+        
+        try:
+            # Convert buffer to DataFrame
+            buffer_df = pd.DataFrame(self.buffer)
+            
+            # Prepare features and target
+            X = buffer_df.drop(['optimal_balance'], axis=1)
+            y = buffer_df['optimal_balance']
+            
+            # Scale features
+            X_scaled = self.scaler.transform(X)
+            
+            # Get current performance
+            current_performance = self._evaluate_performance()
+            
+            # Adjust learning rate based on performance trend
+            if len(self.performance_history) > 1:
+                last_performance = self.performance_history[-1]
+                if current_performance > last_performance:
+                    # Performance improving, increase learning rate
+                    self.learning_rate = min(0.5, self.learning_rate * 1.1)
+                    logger.info(f"Performance improving, increased learning rate to {self.learning_rate:.4f}")
+                else:
+                    # Performance declining, decrease learning rate
+                    self.learning_rate = max(0.01, self.learning_rate * 0.9)
+                    logger.info(f"Performance declining, decreased learning rate to {self.learning_rate:.4f}")
+            
+            # Store current performance
+            self.performance_history.append(current_performance)
+            
+            # Partial fit with adjusted learning rate
+            if hasattr(self.model, 'partial_fit'):
+                self.model.partial_fit(X_scaled, y)
+                logger.info(f"Model partially fitted with {len(X)} samples")
+            else:
+                # For models that don't support partial_fit, retrain completely
+                self.model.fit(X_scaled, y)
+                logger.info(f"Model completely retrained with {len(X)} samples")
+            
+            # Feature importance analysis (if available)
+            if hasattr(self.model, 'feature_importances_'):
+                feature_names = X.columns
+                importances = self.model.feature_importances_
+                feature_importance = sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True)
+                logger.info(f"Top features: {feature_importance[:3]}")
+            
+            # Clear buffer after successful retraining
+            self.buffer = []
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error retraining model: {str(e)}")
+            return False
+    
+    def _evaluate_performance(self):
+        """Evaluate current model performance"""
+        try:
+            # Use a simple metric: average prediction error on buffer data
+            buffer_df = pd.DataFrame(self.buffer)
+            X = buffer_df.drop(['optimal_balance'], axis=1)
+            y_true = buffer_df['optimal_balance']
+            
+            # Scale features
+            X_scaled = self.scaler.transform(X)
+            
+            # Make predictions
+            y_pred = self.model.predict(X_scaled)
+            
+            # Calculate mean absolute error
+            mae = np.mean(np.abs(y_pred - y_true))
+            
+            return 1.0 / (1.0 + mae)  # Higher is better
+            
+        except Exception as e:
+            logger.error(f"Error evaluating performance: {str(e)}")
+            return 0.0 

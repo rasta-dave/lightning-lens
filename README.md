@@ -37,27 +37,36 @@ python scripts/final_fix.py
 To collect data and run the simulation, you need to start multiple components:
 
 ```bash
+# ======= Inside of the Lightning Network Simulation directory =======
 
-# Inside of the LightningLens directory:
-
-# Terminal 1: Start the HTTP server (receives data and serves predictions)
-python src/scripts/http_server.py
-
-# Terminal 2: Start the WebSocket client (connects to simulation)
-python src/scripts/websocket_client.py
-
-# Terminal 3: Start the adapter proxy (transforms data between systems)
-python src/scripts/adapter_proxy.py
-
-# =======================================
-
-# Inside of the Lightning Network Simulation directory:
-
-# Terminal 1: Start the WebSocket server (simulation side)
+# 1. (Inside of simulation directory): Start the WebSocket server (simulation side)
 python scripts/websocket_server.py
 
-# Terminal 2: Start the simulation
-python scripts/simulation.py
+# ======= Inside of the LightningLens directory =======
+
+# 3. Start the HTTP server (receives data and serves predictions)
+python src/scripts/http_server.py
+
+# 4. Start the WebSocket client (connects to simulation)
+python src/scripts/websocket_client.py
+
+# 5. Start the adapter proxy (transforms data between systems)
+python scripts/adapter_proxy.py
+
+# ======= Inside of the Lightning Network Simulation directory =======
+# 6. Start the simulation
+python scripts/simulate_network.py
+
+# ======= Continue to train the model on new data =======
+# 7. Train the model on new data
+python -m scripts.train_initial_model
+
+# ======= Model automatically sending suggestions to the simulation =======
+
+
+# ======= Simulation takes in the suggestions and updates the channel states =======
+
+
 ```
 
 Let the simulation run for at least 10 minutes to collect sufficient data. The components work together:
@@ -273,13 +282,34 @@ python scripts/generate_features.py --input data/processed/transformed_transacti
 python -m scripts.train_initial_model
 ```
 
-## Continuous Learning
+## Continuous Learning System
 
-LightningLens continuously improves by learning from new data. The HTTP server automatically:
+Lightning Lens includes a sophisticated continuous learning system that automatically improves the model as new data becomes available. The system:
 
-1. Saves transaction and channel data every 5 minutes
-2. Retrains the model every 30 minutes using the latest data
-3. Updates recommendations based on the newly trained model
+1. **Collects Data**: Continuously gathers channel state and transaction data
+2. **Generates Predictions**: Regularly predicts optimal channel balances
+3. **Retrains the Model**: Automatically retrains on new data every 30 minutes
+4. **Adapts Learning Rate**: Adjusts how quickly the model learns based on performance
+5. **Tracks Performance**: Monitors how well the model is performing over time
+6. **Visualizes Progress**: Creates charts showing how the model evolves
+
+### Monitoring the Learning Process
+
+You can monitor the continuous learning process in several ways:
+
+1. **Dashboard**: Access the learning dashboard at `http://localhost:5000/api/dashboard`
+2. **Performance Metrics**: Check current performance at `http://localhost:5000/api/performance`
+3. **Prediction Files**: Review prediction files in `data/predictions/`
+4. **Visualizations**: See model evolution charts in `data/visualizations/`
+
+### Manually Triggering Actions
+
+You can manually trigger various actions:
+
+- **Generate Predictions**: `python -m scripts.generate_predictions`
+- **Visualize Evolution**: `python -m scripts.visualize_model_evolution`
+- **Generate Dashboard**: `python -m scripts.learning_dashboard`
+- **Force Retraining**: `curl -X POST http://localhost:5000/api/retrain`
 
 ## Troubleshooting
 
