@@ -4,9 +4,26 @@
 
 A minimalistic AI-powered tool for optimizing Lightning Network node liquidity through machine learning prediction and analysis.
 
+[![Simulation Environment](https://img.shields.io/badge/Simulation_Environment-Lightning_Lens_Simulation-blue)](https://github.com/rasta-dave/lightning-lens-simulation)
+
+This project works with the Lightning Network simulation environment provided by the [Lightning Lens Simulation](https://github.com/rasta-dave/lightning-lens-simulation) repository.
+
+## Project Ecosystem
+
+This repository contains the AI analysis and prediction components. For the complete system:
+
+- **[Lightning Lens Simulation](https://github.com/rasta-dave/lightning-lens-simulation)**: The companion repository that provides the Lightning Network simulation environment with Docker-based nodes and realistic payment patterns.
+- **Current Repository**: The machine learning model that analyzes data from the simulation and provides rebalancing recommendations.
+
+Both repositories are designed to work together to create a complete Lightning Network optimization system.
+
 ## Overview
 
 Lightning Lens is a prototype that uses machine learning to help optimize channel liquidity inside of a Lightning Network simulation. It analyzes network patterns, predicts optimal liquidity levels, and provides actionable recommendations for channel management.
+
+## Related Projects
+
+This project works with the [Lightning Lens Simulation](https://github.com/rasta-dave/lightning-lens-simulation) repository, which provides the Lightning Network simulation environment.
 
 ## Initial Setup
 
