@@ -59,7 +59,7 @@ def generate_dashboard():
                 plt.tight_layout()
                 plt.savefig('data/dashboard/balanced_channels.png')
                 
-                # Plot average adjustment needed over time
+                # Plot average adjustment over time
                 plt.figure(figsize=(12, 6))
                 plt.plot(timestamps, avg_adjustments, marker='o', color='orange')
                 plt.title('Average Adjustment Needed Over Time')
@@ -70,70 +70,79 @@ def generate_dashboard():
                 plt.tight_layout()
                 plt.savefig('data/dashboard/avg_adjustment.png')
                 
-                print("Generated performance metric charts")
+                print("Generated performance charts")
     except Exception as e:
-        print(f"Error generating performance metrics: {str(e)}")
+        print(f"Error generating performance charts: {str(e)}")
     
     # 2. Model Evolution
     try:
+        # Use the model_evolution.csv file if it exists
         if os.path.exists('data/visualizations/model_evolution.csv'):
             evolution_df = pd.read_csv('data/visualizations/model_evolution.csv')
             
-            # Get unique channels
+            # Remove duplicates if any
+            evolution_df = evolution_df.drop_duplicates(subset=['timestamp', 'channel'])
+            
+            # Add a sortable timestamp column if not present
+            if 'timestamp_for_sort' not in evolution_df.columns:
+                evolution_df['timestamp_for_sort'] = pd.to_datetime(evolution_df['timestamp'], format='%m-%d %H:%M')
+                evolution_df = evolution_df.sort_values('timestamp_for_sort')
+            
+            # Calculate convergence metrics
             channels = evolution_df['channel'].unique()
+            timestamps = evolution_df['timestamp'].unique()
             
-            # Plot optimal ratio convergence
-            plt.figure(figsize=(12, 6))
-            
-            for channel in channels[:5]:  # Limit to 5 channels for readability
-                channel_data = evolution_df[evolution_df['channel'] == channel]
-                if not channel_data.empty:
-                    plt.plot(
-                        channel_data['timestamp'], 
-                        abs(channel_data['adjustment_needed']),
-                        marker='o',
-                        label=channel
-                    )
-            
-            plt.title('Convergence of Channel Recommendations')
-            plt.xlabel('Time')
-            plt.ylabel('Absolute Adjustment Needed')
-            plt.legend()
-            plt.grid(True)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            plt.savefig('data/dashboard/convergence.png')
-            
-            print("Generated model evolution charts")
+            if len(timestamps) > 1:  # Only if we have multiple timestamps
+                # Calculate average adjustment needed over time
+                avg_adjustments = []
+                for ts in timestamps:
+                    ts_data = evolution_df[evolution_df['timestamp'] == ts]
+                    avg_adj = ts_data['adjustment_needed'].abs().mean()
+                    avg_adjustments.append(avg_adj)
+                
+                # Plot convergence
+                plt.figure(figsize=(12, 6))
+                plt.plot(timestamps, avg_adjustments, marker='o', color='green')
+                plt.title('Model Convergence: Average Absolute Adjustment Needed')
+                plt.xlabel('Time')
+                plt.ylabel('Avg Absolute Adjustment')
+                plt.grid(True)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                plt.savefig('data/dashboard/convergence.png')
+                
+                print("Generated model evolution charts")
     except Exception as e:
         print(f"Error generating model evolution charts: {str(e)}")
     
-    # 3. Model Retraining Frequency
+    # 3. Retraining Frequency
     try:
-        model_files = glob.glob("data/models/model_retrained_*.pkl")
-        if model_files:
+        # Get all model files
+        model_files = sorted(glob.glob("data/models/model_retrained_*.pkl"))
+        
+        if len(model_files) > 1:
             # Extract timestamps
             timestamps = []
+            intervals = []
+            
+            prev_time = None
             for file in model_files:
-                ts = file.split("model_retrained_")[1].split(".pkl")[0]
-                time_obj = datetime.strptime(ts, "%Y%m%d_%H%M%S")
-                timestamps.append(time_obj)
-            
-            # Sort timestamps
-            timestamps.sort()
-            
-            # Calculate time differences in minutes
-            time_diffs = []
-            formatted_times = []
-            
-            for i in range(1, len(timestamps)):
-                diff = (timestamps[i] - timestamps[i-1]).total_seconds() / 60
-                time_diffs.append(diff)
-                formatted_times.append(timestamps[i-1].strftime("%m-%d %H:%M"))
+                ts = file.split("_")[-1].split(".")[0]
+                time_obj = datetime.strptime(ts, "%Y%m%d%H%M%S")
+                formatted_time = time_obj.strftime("%m-%d %H:%M")
+                
+                timestamps.append(formatted_time)
+                
+                if prev_time:
+                    # Calculate minutes between retrainings
+                    interval = (time_obj - prev_time).total_seconds() / 60
+                    intervals.append(interval)
+                
+                prev_time = time_obj
             
             # Plot retraining frequency
             plt.figure(figsize=(12, 6))
-            plt.bar(formatted_times, time_diffs, color='green')
+            plt.bar(timestamps[1:], intervals, color='purple')
             plt.title('Time Between Model Retrainings')
             plt.xlabel('Retraining Time')
             plt.ylabel('Minutes Since Last Retraining')
@@ -157,11 +166,25 @@ def generate_dashboard():
             h1 { color: #333; }
             .chart-container { margin-bottom: 30px; }
             img { max-width: 100%; border: 1px solid #ddd; }
+            .refresh-button { 
+                padding: 10px 15px; 
+                background-color: #4CAF50; 
+                color: white; 
+                border: none; 
+                border-radius: 4px; 
+                cursor: pointer; 
+                margin-bottom: 20px;
+            }
+            .refresh-button:hover {
+                background-color: #45a049;
+            }
         </style>
     </head>
     <body>
         <h1>LightningLens Learning Dashboard</h1>
         <p>Last updated: {}</p>
+        
+        <button class="refresh-button" onclick="window.location.reload();">Refresh Dashboard</button>
         
         <div class="chart-container">
             <h2>Model Performance</h2>
@@ -177,6 +200,11 @@ def generate_dashboard():
         <div class="chart-container">
             <h2>Retraining Frequency</h2>
             <img src="retraining_frequency.png" alt="Retraining Frequency">
+        </div>
+        
+        <div class="chart-container">
+            <h2>Additional Visualizations</h2>
+            <p>View more detailed visualizations in the <a href="../visualizations/" target="_blank">visualizations directory</a>.</p>
         </div>
     </body>
     </html>

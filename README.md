@@ -1,3 +1,5 @@
+# Under Construction
+
 # Lightning Lens 🔍⚡
 
 A minimalistic AI-powered tool for optimizing Lightning Network node liquidity through machine learning prediction and analysis.
@@ -44,32 +46,47 @@ python scripts/websocket_server.py
 
 # ======= Inside of the LightningLens directory =======
 
-# 3. Start the HTTP server (receives data and serves predictions)
-python src/scripts/http_server.py
+# 2. Start the HTTP server (receives data, serves predictions, and handles continuous learning)
+python -m src.scripts.http_server
 
-# 4. Start the WebSocket client (connects to simulation)
-python src/scripts/websocket_client.py
+# 3. Start the WebSocket client (connects to simulation)
+python -m src.scripts.websocket_client
 
-# 5. Start the adapter proxy (transforms data between systems)
+# 4. Start the adapter proxy (transforms data between systems)
 python scripts/adapter_proxy.py
 
 # ======= Inside of the Lightning Network Simulation directory =======
-# 6. Start the simulation
+# 5. Start the simulation
 python scripts/simulate_network.py
 
-# ======= Continue to train the model on new data =======
-# 7. Train the model on new data
-python -m scripts.train_initial_model
+# 6. Generate predictions
+python -m scripts.auto_generate_predictions
 
-# ======= Model automatically sending suggestions to the simulation =======
+# ======= Monitor and visualize the continuous learning process =======
+# 7. Visualize how model recommendations evolve over time
+python -m scripts.visualize_model_evolution
+
+# 8. Generate a dashboard to monitor learning progress
+python -m scripts.learning_dashboard
 
 
-# ======= Simulation takes in the suggestions and updates the channel states =======
+# 9. (Optional) Force model retraining
+curl -X POST http://localhost:5001/api/retrain
+
+# 10. (Optional) View performance metrics
+curl http://localhost:5001/api/performance
+
+# 11. (Optional) Generate and view the dashboard
+curl http://localhost:5001/api/dashboard
+# Then open data/dashboard/index.html in your browser
+
 
 
 ```
 
-Let the simulation run for at least 10 minutes to collect sufficient data. The components work together:
+# If you are a first-time user, let the simulation run for at least 10 minutes to collect sufficient data. This is necessary for creating the initial model.
+
+The components work together:
 
 1. The **simulation** generates Lightning Network transactions and channel states
 2. The **WebSocket server** broadcasts this data
@@ -150,6 +167,13 @@ python scripts/websocket_server.py
 
 # Terminal 2: Start the simulation
 python scripts/simulation.py
+
+# =======================================
+
+# Back in the LightningLens directory:
+
+# Terminal 4: Run the prediction workflow after the simulation has been running for awhile
+python -m scripts.prediction_workflow
 ```
 
 ### 2. Monitor and Analyze
@@ -377,6 +401,55 @@ After analysis, you'll find visualization files in the `visualizations/` directo
 - Rebalancing recommendations
 - Feature importance analysis
 - Detailed recommendation reports
+
+## Prediction Workflow
+
+LightningLens provides a streamlined workflow for generating predictions, creating visualizations, and managing prediction files:
+
+### Complete Workflow
+
+Run the complete workflow with a single command:
+
+```bash
+# Run the default workflow (generate 1 prediction, visualize, and keep 20 most recent files)
+python -m scripts.prediction_workflow
+
+# Generate multiple predictions with a 10-minute interval
+python -m scripts.prediction_workflow --count 3 --interval 10
+
+# Generate detailed visualizations
+python -m scripts.prediction_workflow --detailed
+
+# Archive old files instead of deleting them
+python -m scripts.prediction_workflow --archive
+```
+
+### Customizing the Workflow
+
+You can skip specific steps of the workflow:
+
+```bash
+# Skip prediction generation (only visualize and archive)
+python -m scripts.prediction_workflow --skip-generate
+
+# Skip visualization (only generate and archive)
+python -m scripts.prediction_workflow --skip-visualize
+
+# Skip archiving (only generate and visualize)
+python -m scripts.prediction_workflow --skip-archive
+```
+
+### Managing Prediction Files
+
+To manually manage prediction files:
+
+```bash
+# Keep the 20 most recent prediction files and delete the rest
+python -m scripts.archive_predictions --keep 20
+
+# Archive old files instead of deleting them
+python -m scripts.archive_predictions --keep 20 --archive
+```
 
 ## Contributing
 
